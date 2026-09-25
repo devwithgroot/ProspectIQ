@@ -1,6 +1,6 @@
 
 from agents.state import ResearchState
-from config.schemas import ProspectScore
+from config.schemas import ProspectScore, ScoringAssessment
 from llm.client import LLMClient
 
 
@@ -82,35 +82,45 @@ Important rules:
 - If evidence is missing, give a conservative score.
 - Stronger and higher-quality evidence should receive
   greater consideration.
-- Confidence must reflect how much reliable evidence
-  supports your assessment.
-- Do NOT calculate overall_score.
-- The application will calculate the overall score.
 
-Recommendation must be one of:
+Confidence must be a decimal number between 0.0 and 1.0.
 
-- "High-priority prospect"
-- "Potential prospect"
-- "Low-priority prospect"
+Examples:
+- 0.90 = very high confidence
+- 0.75 = high confidence
+- 0.50 = moderate confidence
+- 0.25 = low confidence
 
-Return ONLY valid JSON:
+DO NOT express confidence as a percentage.
+For example, do NOT return 80 or 80%.
+Return 0.80 instead.
+
+Do NOT calculate overall_score.
+The application will calculate the overall score.
+
+Do NOT provide a recommendation.
+The application will determine the recommendation
+from the calculated overall score.
+
+Return ONLY valid JSON using exactly this structure.
 
 {{
   "company_name": "{state.company_name}",
-  "overall_score": 0,
-  "growth_score": 0,
-  "expansion_score": 0,
-  "hiring_score": 0,
-  "technology_score": 0,
-  "strategic_score": 0,
-  "confidence": 0,
-  "recommendation": "...",
+  "growth_score": <number from 0 to 100>,
+  "expansion_score": <number from 0 to 100>,
+  "hiring_score": <number from 0 to 100>,
+  "technology_score": <number from 0 to 100>,
+  "strategic_score": <number from 0 to 100>,
+  "confidence": <decimal from 0.0 to 1.0>,
   "reasons": [
-    "...",
-    "...",
-    "..."
+    "<evidence-based reason>",
+    "<evidence-based reason>",
+    "<evidence-based reason>"
   ]
 }}
+
+Do not copy placeholder values.
+Calculate every score independently from the provided evidence.
 """
 
         response = self.llm.generate(
@@ -119,23 +129,34 @@ Return ONLY valid JSON:
             max_tokens=600,
         )
 
-        result = ProspectScore.model_validate_json(
+        assessment = ScoringAssessment.model_validate_json(
             response
         )
 
-        result.overall_score = (
-            result.growth_score * self.GROWTH_WEIGHT
-            + result.expansion_score * self.EXPANSION_WEIGHT
-            + result.hiring_score * self.HIRING_WEIGHT
-            + result.technology_score * self.TECHNOLOGY_WEIGHT
-            + result.strategic_score * self.STRATEGIC_WEIGHT
+        overall_score = (
+            assessment.growth_score * self.GROWTH_WEIGHT
+            + assessment.expansion_score * self.EXPANSION_WEIGHT
+            + assessment.hiring_score * self.HIRING_WEIGHT
+            + assessment.technology_score * self.TECHNOLOGY_WEIGHT
+            + assessment.strategic_score * self.STRATEGIC_WEIGHT
         )
 
-        result.recommendation = self._get_recommendation(
-            result.overall_score
+        recommendation = self._get_recommendation(
+            overall_score
         )
 
-        return result
+        return ProspectScore(
+            company_name=assessment.company_name,
+            overall_score=overall_score,
+            growth_score=assessment.growth_score,
+            expansion_score=assessment.expansion_score,
+            hiring_score=assessment.hiring_score,
+            technology_score=assessment.technology_score,
+            strategic_score=assessment.strategic_score,
+            confidence=assessment.confidence,
+            recommendation=recommendation,
+            reasons=assessment.reasons,
+        )
 
     def _get_recommendation(
         self,

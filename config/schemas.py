@@ -23,6 +23,13 @@ class Evidence(BaseModel):
 
     evidence_type: str = "web"
 
+class WebsiteContent(BaseModel):
+    url: str
+    title: str
+    content: str
+    status_code: int
+    content_type: str
+
 class ResearchDecision(BaseModel):
     action: str = Field(
         description="The next action. Must be either 'search' or 'finish'."
@@ -45,6 +52,41 @@ class Signal(BaseModel):
         description="Signal strength: low, medium, or high"
     )
     evidence: str
+
+class ScoringAssessment(BaseModel):
+    company_name: str
+
+    growth_score: float = Field(
+        ge=0.0,
+        le=100.0,
+    )
+
+    expansion_score: float = Field(
+        ge=0.0,
+        le=100.0,
+    )
+
+    hiring_score: float = Field(
+        ge=0.0,
+        le=100.0,
+    )
+
+    technology_score: float = Field(
+        ge=0.0,
+        le=100.0,
+    )
+
+    strategic_score: float = Field(
+        ge=0.0,
+        le=100.0,
+    )
+
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+    )
+
+    reasons: list[str]
 
 
 class ProspectAnalysis(BaseModel):
@@ -111,3 +153,25 @@ class ProspectScore(BaseModel):
     recommendation: str
 
     reasons: list[str]
+
+class ProspectReport(BaseModel):
+    company_name: str
+
+    executive_summary: str
+
+    prospect_score: float = Field(
+        ge=0.0,
+        le=100.0,
+    )
+
+    recommendation: str
+
+    key_signals: list[str]
+
+    risks: list[str]
+
+    recommended_sales_approach: str
+
+    evidence: list[Evidence] = Field(
+        default_factory=list
+    )
