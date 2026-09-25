@@ -13,7 +13,7 @@ def _draft(contact_id: str, channel: str, status: str = "approved") -> OutreachD
     return OutreachDraft(
         draft_id="dr_connector",
         contact_id=contact_id,
-        prospect_id="pr_asian_paints",
+        company_id="pr_asian_paints",
         profile_id="pf_ap_001",
         channel=channel,
         subject="Subject" if channel == "email" else None,

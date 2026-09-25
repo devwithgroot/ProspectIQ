@@ -28,8 +28,9 @@ Seller onboarding + CSV upload now run the existing orchestrator for each upload
 |---|---|
 | [docs/USER_FLOW.md](docs/USER_FLOW.md) | How a seller uses the product, now vs intended |
 | [docs/PIPELINE.md](docs/PIPELINE.md) | Onboard + CSV + live orchestrator (MLX, Tavily) |
+| [docs/RESEARCH.md](docs/RESEARCH.md) | Research run: who is asked, which entity is filled |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, machines, and how they connect |
-| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | User, prospect, contact, profile, outreach objects |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | User, company, contact, profile, outreach objects |
 | [docs/EXCON.md](docs/EXCON.md) | Outreach connectors, approval, dry-run |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Four phases, what is done, what is next |
 

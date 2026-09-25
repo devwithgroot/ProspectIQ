@@ -12,7 +12,8 @@ from config.excon_schemas import (
     OutreachDraft,
     OutreachPackage,
     Product,
-    Prospect,
+    Company,
+    CompanyProfile,
     User,
 )
 from connectors.compliance import select_primary_channel, skip_reason
@@ -51,7 +52,8 @@ class OutreachAgent:
         self,
         user: User,
         products: list[Product],
-        prospect: Prospect,
+        company: Company,
+        company_profile: CompanyProfile,
         contact: Contact,
         profile: ContactProfile,
         dnc: list[DoNotContactEntry],
@@ -77,7 +79,8 @@ class OutreachAgent:
         content = self._draft_content(
             user=user,
             products=products,
-            prospect=prospect,
+            company=company,
+            company_profile=company_profile,
             contact=contact,
             profile=profile,
             channel=channel,
@@ -87,7 +90,7 @@ class OutreachAgent:
         draft = OutreachDraft(
             draft_id=f"dr_{uuid4().hex[:12]}",
             contact_id=contact.contact_id,
-            prospect_id=prospect.prospect_id,
+            company_id=company.company_id,
             profile_id=profile.profile_id,
             channel=content.channel,
             subject=content.subject,
@@ -109,7 +112,8 @@ class OutreachAgent:
         self,
         user: User,
         products: list[Product],
-        prospect: Prospect,
+        company: Company,
+        company_profile: CompanyProfile,
         contact: Contact,
         profile: ContactProfile,
         channel: Channel,
@@ -128,7 +132,7 @@ class OutreachAgent:
         signal_summary = "\n".join(
             [
                 f"- {signal.type} ({signal.strength}): {signal.description}"
-                for signal in prospect.signals
+                for signal in company_profile.signals
             ]
         ) or "None provided."
 
@@ -151,15 +155,15 @@ Seller:
 Matched products:
 {product_summary}
 
-Prospect company:
-- Name: {prospect.company_name}
-- Industry: {prospect.industry}
-- Summary: {prospect.description}
-- Why relevant: {prospect.why_relevant_to_user}
-- Pain points: {", ".join(prospect.pain_points)}
+Company:
+- Name: {company.name}
+- Industry: {company.industry}
+- Summary: {company_profile.executive_summary}
+- Why relevant: {company_profile.why_relevant_to_user}
+- Pain points: {", ".join(company_profile.pain_points)}
 - Signals:
 {signal_summary}
-- Recommendation: {prospect.recommendation} ({prospect.overall_score})
+- Recommendation: {company_profile.recommendation} ({company_profile.overall_score})
 
 Contact:
 - Name: {contact.full_name}

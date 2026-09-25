@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config.excon_schemas import (
+    Company,
+    CompanyProfile,
     Contact,
     ContactProfile,
     DoNotContactEntry,
     Product,
-    Prospect,
     User,
 )
 
@@ -20,42 +21,50 @@ MOCK_DIR = Path(__file__).resolve().parent / "mock"
 class MockBundle:
     user: User
     products: list[Product]
-    prospects: list[Prospect]
+    companies: list[Company]
+    company_profiles: list[CompanyProfile]
     contacts: list[Contact]
-    profiles: list[ContactProfile]
+    contact_profiles: list[ContactProfile]
     dnc: list[DoNotContactEntry]
 
     def product_map(self) -> dict[str, Product]:
         return {product.product_id: product for product in self.products}
 
-    def prospect_map(self) -> dict[str, Prospect]:
-        return {prospect.prospect_id: prospect for prospect in self.prospects}
+    def company_map(self) -> dict[str, Company]:
+        return {company.company_id: company for company in self.companies}
+
+    def company_profile_map(self) -> dict[str, CompanyProfile]:
+        return {
+            profile.company_id: profile for profile in self.company_profiles
+        }
 
     def contact_map(self) -> dict[str, Contact]:
         return {contact.contact_id: contact for contact in self.contacts}
 
-    def profile_map(self) -> dict[str, ContactProfile]:
-        return {profile.profile_id: profile for profile in self.profiles}
+    def contact_profile_map(self) -> dict[str, ContactProfile]:
+        return {
+            profile.profile_id: profile for profile in self.contact_profiles
+        }
 
-    def contacts_for(self, prospect_id: str) -> list[Contact]:
+    def contacts_for(self, company_id: str) -> list[Contact]:
         return [
             contact
             for contact in self.contacts
-            if contact.prospect_id == prospect_id
+            if contact.company_id == company_id
         ]
 
-    def profiles_for(self, prospect_id: str) -> list[ContactProfile]:
+    def contact_profiles_for(self, company_id: str) -> list[ContactProfile]:
         return [
             profile
-            for profile in self.profiles
-            if profile.prospect_id == prospect_id
+            for profile in self.contact_profiles
+            if profile.company_id == company_id
         ]
 
-    def products_for(self, prospect: Prospect) -> list[Product]:
+    def products_for(self, profile: CompanyProfile) -> list[Product]:
         product_map = self.product_map()
         return [
             product_map[product_id]
-            for product_id in prospect.matched_product_ids
+            for product_id in profile.matched_product_ids
             if product_id in product_map
         ]
 
@@ -70,17 +79,21 @@ def load_mock_bundle(mock_dir: Path | None = None) -> MockBundle:
         Product.model_validate(item)
         for item in _read_json_list(directory / "products.json")
     ]
-    prospects = [
-        Prospect.model_validate(item)
-        for item in _read_json_list(directory / "prospects.json")
+    companies = [
+        Company.model_validate(item)
+        for item in _read_json_list(directory / "companies.json")
+    ]
+    company_profiles = [
+        CompanyProfile.model_validate(item)
+        for item in _read_json_list(directory / "company_profiles.json")
     ]
     contacts = [
         Contact.model_validate(item)
         for item in _read_json_list(directory / "contacts.json")
     ]
-    profiles = [
+    contact_profiles = [
         ContactProfile.model_validate(item)
-        for item in _read_json_list(directory / "profiles.json")
+        for item in _read_json_list(directory / "contact_profiles.json")
     ]
     dnc = [
         DoNotContactEntry.model_validate(item)
@@ -90,9 +103,10 @@ def load_mock_bundle(mock_dir: Path | None = None) -> MockBundle:
     return MockBundle(
         user=user,
         products=products,
-        prospects=prospects,
+        companies=companies,
+        company_profiles=company_profiles,
         contacts=contacts,
-        profiles=profiles,
+        contact_profiles=contact_profiles,
         dnc=dnc,
     )
 

@@ -1,0 +1,30 @@
+[
+  {
+    "company_id": "co_test",
+    "name": "Test",
+    "website": null,
+    "industry": "Unknown",
+    "headquarters": null,
+    "employee_count": null,
+    "founded_year": null,
+    "description": "Test is not a valuable prospect for TezBytes due to a lack of direct evidence about the company's business activities, financial health, or strategic direction. All research evidence references other companies, making it impossible to evaluate Test as a potential sales opportunity.",
+    "products_services": [],
+    "sources": [
+      "https://finance.yahoo.com/news/insider-buying-leadership-changes-test-110854563.html",
+      "https://finance.yahoo.com/news/nb-tech-acquisitions-corp-announces-170000122.html",
+      "https://finance.yahoo.com/news/leadership-changes-constellation-software-tsx-121025784.html",
+      "https://www.ainvest.com/news/vic-525-41-24-hours-strategic-partnerships-product-launches-2508",
+      "https://www.ainvest.com/news/sxt-1239-37-24-hours-strategic-partnerships-product-launches-drive-momentum-2508",
+      "https://www.ainvest.com/news/mav-679-8-24-hours-strategic-partnerships-product-launches-2508",
+      "https://www.investing.com/news/company-news/castle-biosciences-to-acquire-previse-for-gi-test-expansion-93CH-4022792",
+      "https://scanx.trade/stock-market-news/stocks/himadri-speciality-chemical-eyes-revival-amid-expansion-plans-despite-recent-decline/29494531",
+      "https://finance.yahoo.com/news/klarna-expansion-article-deal-test-111344472.html",
+      "https://tntp.org/publication/the-opportunity-makers",
+      "https://www.makers.to",
+      "https://makerworld.com/en",
+      "https://www.sciencedirect.com/science/article/pii/S219985312500071X",
+      "https://www.mdpi.com/2078-2489/16/6/454",
+      "https://pubsonline.informs.org/doi/10.1287/stsc.2024.0190"
+    ]
+  }
+]

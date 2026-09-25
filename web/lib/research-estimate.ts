@@ -1,7 +1,7 @@
 const ONBOARD_LOW_MINUTES = 1
 const ONBOARD_HIGH_MINUTES = 2
-const COMPANY_LOW_MINUTES = 2
-const COMPANY_HIGH_MINUTES = 3.5
+const COMPANY_LOW_MINUTES = 3
+const COMPANY_HIGH_MINUTES = 5
 const TIME_BUFFER_MINUTES = 3
 
 export type ResearchEstimate = {
@@ -86,6 +86,8 @@ export function researchPhases(companyNames: string[]): string[] {
     phases.push(`Searching public sources for ${name}`)
     phases.push(`Reading what we found on ${name}`)
     phases.push(`Writing the briefing for ${name}`)
+    phases.push(`Finding people at ${name}`)
+    phases.push(`Writing contact briefings for ${name}`)
   }
   phases.push("Putting the briefings together")
   return phases
@@ -209,6 +211,27 @@ export function waitingHint(current: string, elapsedSeconds: number): string {
       "Rating growth, hiring, and fit",
       "Weighing what we found",
       "Still scoring this company",
+    ]
+  } else if (text.includes("stopping") || text.includes("stopped")) {
+    lines = [
+      "Finishing the step that’s already running",
+      "Stopping after this",
+      "Almost stopped",
+    ]
+  } else if (text.includes("skipping") || text.startsWith("skipped")) {
+    lines = [
+      "Leaving this company",
+      "Moving on",
+      "Starting the next company",
+    ]
+  } else if (
+    text.includes("people") ||
+    text.includes("contact")
+  ) {
+    lines = [
+      "Finding who to talk to",
+      "Reading what is public about them",
+      "Writing their briefing",
     ]
   } else if (text.includes("briefing") || text.includes("writing")) {
     lines = [

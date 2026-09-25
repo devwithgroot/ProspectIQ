@@ -1,7 +1,18 @@
 import { z } from "zod"
 
 import { isAllowedTitle, type Catalog } from "@/lib/catalog"
-import type { ProspectReport, StagedProspect, StagingPreview } from "@/lib/types"
+import type { StagedProspect, StagingPreview } from "@/lib/types"
+
+export type BriefingDraft = {
+  company_id: string
+  name: string
+  executive_summary: string
+  overall_score: number
+  recommendation: string
+  key_signals: string[]
+  risks: string[]
+  recommended_sales_approach: string
+}
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
@@ -227,9 +238,10 @@ export const verifyCodeSchema = z
   .regex(/^\d{6}$/, "Type the 6-digit code from that inbox.")
 
 export const briefingSchema = z.object({
-  company_name: z.string().trim().min(1, "Please add the company name."),
+  company_id: z.string(),
+  name: z.string().trim().min(1, "Please add the company name."),
   executive_summary: z.string().trim().min(1, "Please add a short summary."),
-  prospect_score: z.number(),
+  overall_score: z.number(),
   recommendation: z.string(),
   key_signals: z
     .array(z.string().trim().min(1))
@@ -239,7 +251,7 @@ export const briefingSchema = z.object({
     .string()
     .trim()
     .min(1, "Please add a suggested approach."),
-}) satisfies z.ZodType<ProspectReport>
+}) satisfies z.ZodType<BriefingDraft>
 
 export function validateYouDetails(input: {
   fullName: string
@@ -318,6 +330,6 @@ export function validateVerifyCode(code: string): string | null {
   return validateOrMessage(verifyCodeSchema, code)
 }
 
-export function validateBriefing(report: ProspectReport): string | null {
-  return validateOrMessage(briefingSchema, report)
+export function validateBriefing(draft: BriefingDraft): string | null {
+  return validateOrMessage(briefingSchema, draft)
 }

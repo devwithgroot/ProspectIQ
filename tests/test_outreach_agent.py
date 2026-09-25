@@ -8,16 +8,18 @@ def main():
     print("==============================")
 
     bundle = load_mock_bundle()
-    prospect = bundle.prospect_map()["pr_asian_paints"]
-    products = bundle.products_for(prospect)
+    company = bundle.company_map()["pr_asian_paints"]
+    company_profile = bundle.company_profile_map()[company.company_id]
+    products = bundle.products_for(company_profile)
     agent = OutreachAgent()
 
     amit = bundle.contact_map()["ct_ap_001"]
-    amit_profile = bundle.profile_map()["pf_ap_001"]
+    amit_profile = bundle.contact_profile_map()["pf_ap_001"]
     amit_package = agent.prepare_package(
         user=bundle.user,
         products=products,
-        prospect=prospect,
+        company=company,
+        company_profile=company_profile,
         contact=amit,
         profile=amit_profile,
         dnc=bundle.dnc,
@@ -31,11 +33,12 @@ def main():
     print(amit_package.drafts[0].body)
 
     kavita = bundle.contact_map()["ct_ap_002"]
-    kavita_profile = bundle.profile_map()["pf_ap_002"]
+    kavita_profile = bundle.contact_profile_map()["pf_ap_002"]
     kavita_package = agent.prepare_package(
         user=bundle.user,
         products=products,
-        prospect=prospect,
+        company=company,
+        company_profile=company_profile,
         contact=kavita,
         profile=kavita_profile,
         dnc=bundle.dnc,
@@ -45,11 +48,12 @@ def main():
     print(kavita_package.drafts[0].body)
 
     deepak = bundle.contact_map()["ct_ap_004"]
-    deepak_profile = bundle.profile_map()["pf_ap_004"]
+    deepak_profile = bundle.contact_profile_map()["pf_ap_004"]
     deepak_package = agent.prepare_package(
         user=bundle.user,
         products=products,
-        prospect=prospect,
+        company=company,
+        company_profile=company_profile,
         contact=deepak,
         profile=deepak_profile,
         dnc=bundle.dnc,

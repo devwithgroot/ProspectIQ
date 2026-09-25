@@ -1,73 +1,83 @@
 # Data model
 
-The pipeline builds `User`, `Product`, and `Prospect` live. EXCON still reads people from `data/mock/`. Research objects live in `config/schemas.py`; seller/outreach objects live in `config/excon_schemas.py`.
+Who is asked and which object is filled: [RESEARCH.md](RESEARCH.md).
+
+Seller and outreach objects live in `config/excon_schemas.py`. Scratch notes from a live run (`Evidence`, `ProspectReport`, `PersonData`) live in `config/schemas.py` and are mapped before save.
 
 ```text
 User ──owns──► Product
-User ──targets──► Prospect
-Prospect ──has──► Contact
+User ──targets──► Company
+Company ──has──► CompanyProfile
+Company ──has──► Contact
 Contact ──has──► ContactProfile
-ContactProfile + User + Product + Prospect ──► OutreachDraft
+User + Product + Company + CompanyProfile + Contact + ContactProfile
+        ──► OutreachDraft
 ```
 
-IDs are stable strings so files and future APIs can join: `us_`, `pd_`, `pr_`, `ct_`, `pf_`, `dr_`.
+IDs: `us_`, `pd_`, `co_`, `cp_`, `ct_`, `pf_`, `dr_`.
 
 ## User (seller)
 
-Who is logged in and what they sell. Created from name / phone / work email plus the company website.
+Who is signed in and what they sell. From name / phone / work email plus the company website.
 
-Key fields: `user_id`, `full_name`, `title` (`SellerTitle` enum), `email` (work identity), `outreach_email` (from-address, may differ), `outreach_email_verified`, `phone`, `company` (`SellerCompany`), `voice` (tone, signature, calendar, CTA), `product_ids`.
+Key fields: `user_id`, `full_name`, `title` (`SellerTitle`), `email` (work identity), `outreach_email` (from-address), `outreach_email_verified`, `phone`, `company` (`SellerCompany`), `voice`, `product_ids`.
 
-Research signup only collects work email. Until engagement, `outreach_email` defaults to that work address. Outreach email and OTP confirmation (`OTP_REQUIRED`) belong after login, when the seller actually writes to people. Signature and later EXCON sends use the outreach address, not the work email.
+Research signup only collects work email. Until engagement, `outreach_email` defaults to that address. `title` and `company.industry` are catalog enums (`config/catalog.json`). The Next.js form ships the same list as `web/lib/catalog-data.json`.
 
-`title` and `company.industry` are closed lists from `config/catalog.json` (`Industry` and `SellerTitle` in `config/catalog.py`). The seller types to filter, but only a catalog value is stored. Title options change with industry: every industry gets the shared GTM ladder (SDR / AE / KAM / Head of Sales / CRO), plus roles that industry actually uses (Plant Head in manufacturing, Medical Representative in pharma, Relationship Manager in banking). The Next.js form ships the same JSON as `web/lib/catalog-data.json`; keep those two files identical.
-
-Without `voice` and products, outreach has no sender and no offer.
+`User.company` is the seller’s firm, not a researched target `Company`.
 
 ## Product
 
-One thing the seller can pitch. Prospects point at these with `matched_product_ids`.
+One thing the seller can pitch. `CompanyProfile.matched_product_ids` points here.
 
-Includes ICP, target industries, value props, use cases, differentiators, objections, typical buyer titles, pricing note, proof points.
+ICP, target industries, value props, use cases, differentiators, objections, typical buyer titles, pricing note, proof points.
 
-`OnboardingAgent` infers these from the company site via MLX. The seller should be able to edit them; that UI is not built yet.
+Inferred from the seller website by `OnboardingAgent`.
 
-## Prospect (company of interest)
+## Company
 
-A company the seller cares about. Comes from upload and/or later discovery, then research fills the rest.
+The target firm (the record). Name, site, industry, HQ, size, year, short description, what they sell, sources.
 
-Includes identity (name, site, industry, HQ, size), what they sell, signals, pain points, `overall_score`, `recommendation`, `why_relevant_to_user`, `matched_product_ids`, sources.
+`company_id` is `co_…` on live runs. Mock fixtures still use older `pr_…` ids.
 
-This is the object EXCON consumes instead of a raw `ProspectReport`.
+## CompanyProfile
+
+The company briefing (how to sell the firm). Joined by `company_id`.
+
+Executive summary, score, recommendation, signals, pain points, risks, recommended approach (roles, not invented names), why relevant to this seller, matched products.
 
 ## Contact
 
-A person at a prospect. Handles, role, consent.
+A person at that company. Joined by `company_id`.
 
 - `decision_role`: economic_buyer | champion | influencer | blocker
 - Handles: `email`, `phone`, `linkedin_url`, `whatsapp_number`, `slack_user_id` — any may be missing
 - `preferred_channel` + `consent` per channel
 - `do_not_contact`
 
-Mocks include: no email, SMS consent off, one DNC contact. Those cases must keep working.
+Live research turns Prospeo `PersonData` into this. Email/SMS consent stays false until the seller says so. LinkedIn consent is on if a profile URL exists.
+
+Mocks still include: no email, SMS consent off, one DNC contact. Those cases must keep working.
 
 ## ContactProfile
 
-Researched view of the contact. This is what the outreach prompt reads.
+The person briefing. Joined by `contact_id` and `company_id`. This is what the outreach prompt reads.
 
 Bio, responsibilities, interests, recent activity, communication style, likely pain vs our product, talking points, risks, recommended approach, language.
 
+Written from the company briefing plus public articles on that person.
+
 ## Do-not-contact
 
-`DoNotContactEntry`: `kind` is `contact_id` | `email` | `phone`. Matched against the contact before draft and again before send.
+`DoNotContactEntry`: `kind` is `contact_id` | `email` | `phone`. Checked before draft and again before send.
 
 ## Outreach
 
 | Object | Role |
 |---|---|
-| `OutreachDraft` | One message, one channel, status `draft` / `approved` / `rejected` / `sent` |
+| `OutreachDraft` | One message, one channel, status `draft` / `approved` / `rejected` / `sent`. Has `company_id`. |
 | `OutreachPackage` | All drafts (or a skip reason) for one contact |
-| `OutreachBatch` | One prepare() run for a user × prospect |
+| `OutreachBatch` | One `prepare()` run for a user × company |
 | `OutreachEvent` | `drafted` / `edited` / `approved` / `rejected` / `sent` / `send_failed` |
 | `SendResult` | Connector outcome, including `dry_run` |
 
@@ -75,30 +85,22 @@ Bio, responsibilities, interests, recent activity, communication style, likely p
 
 ## Fixtures
 
-`data/mock/` is the joined example of this graph:
+`data/mock/` is the joined example:
 
 | File | Contents |
 |---|---|
 | `user.json` | Priya Mehta, NexusFlow |
 | `products.json` | Demand Planning, PlantConnect, TradePulse |
-| `prospects.json` | Asian Paints, Tata Steel, Havells |
+| `companies.json` | Asian Paints, Tata Steel, Havells |
+| `company_profiles.json` | One briefing per company |
 | `contacts.json` | 8 people |
-| `profiles.json` | 8 profiles |
+| `contact_profiles.json` | 8 person briefings |
 | `do_not_contact.json` | Deepak Nair + bounce fixture |
 
 Load with `data.loader.load_mock_bundle()`.
 
-## Mapping from the live pipeline
+## Live run files
 
-`SellerPipeline` already does:
+`SellerPipeline` writes `data/runs/<timestamp>/` with `user.json`, `products.json`, `companies.json`, `company_profiles.json`, `contacts.json`, `contact_profiles.json`.
 
-1. Signup fields + website → `User` + `Product` list (MLX)
-2. Upload rows → `UploadedProspect`
-3. `ProspectIQ.analyze()` → `ProspectReport`
-4. `report_to_prospect()` → `Prospect` written to `data/runs/<timestamp>/`
-
-Still future:
-
-1. Contact finder → `Contact` list
-2. Profile builder → `ContactProfile` list
-3. Point EXCON at `data/runs/` instead of `data/mock/`
+EXCON still defaults to the mock bundle until `prepare()` is pointed at a run.

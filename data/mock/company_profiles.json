@@ -1,20 +1,10 @@
 [
   {
-    "prospect_id": "pr_asian_paints",
-    "company_name": "Asian Paints",
-    "website": "https://www.asianpaints.com",
-    "industry": "Paints and coatings",
-    "headquarters": "Mumbai, India",
-    "employee_count": 8000,
-    "founded_year": 1942,
-    "description": "India's largest decorative paints company, with a dense dealer network, a growing waterproofing and home-improvement portfolio, and ongoing capacity and digital investments.",
-    "products_services": [
-      "Decorative paints",
-      "Waterproofing",
-      "Adhesives and construction chemicals",
-      "Home painting services",
-      "Industrial coatings"
-    ],
+    "profile_id": "cp_asian_paints",
+    "company_id": "pr_asian_paints",
+    "executive_summary": "India's largest decorative paints company, with a dense dealer network, a growing waterproofing and home-improvement portfolio, and ongoing capacity and digital investments.",
+    "overall_score": 82.0,
+    "recommendation": "High-priority prospect",
     "signals": [
       {
         "type": "expansion",
@@ -46,32 +36,24 @@
       "Dealer and painter-program performance is hard to see before month-end",
       "New-depot and new-category ramps need cleaner sell-out data"
     ],
-    "overall_score": 82.0,
-    "recommendation": "High-priority prospect",
+    "risks": [
+      "SKU and depot complexity makes consensus demand planning slow",
+      "Dealer and painter-program performance is hard to see before month-end",
+      "New-depot and new-category ramps need cleaner sell-out data"
+    ],
+    "recommended_sales_approach": "Asian Paints is a textbook NexusFlow ICP: a branded coatings leader with thousands of dealers, a festive-and-monsoon demand cycle, and live expansion. Demand Planning and TradePulse map directly to supply and channel pain.",
     "why_relevant_to_user": "Asian Paints is a textbook NexusFlow ICP: a branded coatings leader with thousands of dealers, a festive-and-monsoon demand cycle, and live expansion. Demand Planning and TradePulse map directly to supply and channel pain.",
     "matched_product_ids": [
       "pd_demand_planning",
       "pd_tradepulse"
-    ],
-    "sources": [
-      "https://www.asianpaints.com",
-      "Public market and expansion coverage from research tools"
     ]
   },
   {
-    "prospect_id": "pr_tata_steel",
-    "company_name": "Tata Steel",
-    "website": "https://www.tatasteel.com",
-    "industry": "Metals and steel manufacturing",
-    "headquarters": "Mumbai, India",
-    "employee_count": 75000,
-    "founded_year": 1907,
-    "description": "Integrated steel producer with large Indian plants, a long-running manufacturing-excellence program, and public Industry 4.0 / digital plant initiatives.",
-    "products_services": [
-      "Flat and long steel",
-      "Downstream steel products",
-      "Industrial solutions for auto and construction"
-    ],
+    "profile_id": "cp_tata_steel",
+    "company_id": "pr_tata_steel",
+    "executive_summary": "Integrated steel producer with large Indian plants, a long-running manufacturing-excellence program, and public Industry 4.0 / digital plant initiatives.",
+    "overall_score": 74.0,
+    "recommendation": "Potential prospect",
     "signals": [
       {
         "type": "technology",
@@ -97,32 +79,23 @@
       "Exception reviews still wait on monthly MIS in some lines",
       "New digital tools fail if they ask plants to abandon the existing MES"
     ],
-    "overall_score": 74.0,
-    "recommendation": "Potential prospect",
+    "risks": [
+      "Plant and central teams do not always share the same downtime picture",
+      "Exception reviews still wait on monthly MIS in some lines",
+      "New digital tools fail if they ask plants to abandon the existing MES"
+    ],
+    "recommended_sales_approach": "Tata Steel is a PlantConnect fit: multiple large plants, a serious digital-manufacturing agenda, and buyers who will reject anything that rips out MES. The conversation is plant visibility, not another historian rip-and-replace.",
     "why_relevant_to_user": "Tata Steel is a PlantConnect fit: multiple large plants, a serious digital-manufacturing agenda, and buyers who will reject anything that rips out MES. The conversation is plant visibility, not another historian rip-and-replace.",
     "matched_product_ids": [
       "pd_plantconnect"
-    ],
-    "sources": [
-      "https://www.tatasteel.com",
-      "Public Industry 4.0 and plant-operations coverage"
     ]
   },
   {
-    "prospect_id": "pr_havells",
-    "company_name": "Havells India",
-    "website": "https://www.havells.com",
-    "industry": "Electricals and consumer durables",
-    "headquarters": "Noida, India",
-    "employee_count": 12000,
-    "founded_year": 1958,
-    "description": "Electricals and durables brand with a wide dealer network across lighting, switchgear, fans, and related categories, plus continued channel and brand investment.",
-    "products_services": [
-      "Switchgear",
-      "Lighting",
-      "Fans and appliances",
-      "Cables and electrical accessories"
-    ],
+    "profile_id": "cp_havells",
+    "company_id": "pr_havells",
+    "executive_summary": "Electricals and durables brand with a wide dealer network across lighting, switchgear, fans, and related categories, plus continued channel and brand investment.",
+    "overall_score": 71.0,
+    "recommendation": "Potential prospect",
     "signals": [
       {
         "type": "expansion",
@@ -148,15 +121,15 @@
       "Electrician and influencer program spend is hard to attribute",
       "New-geography channel design needs cleaner secondary-sales data"
     ],
-    "overall_score": 71.0,
-    "recommendation": "Potential prospect",
+    "risks": [
+      "Dealer health is still reviewed too late for regional managers",
+      "Electrician and influencer program spend is hard to attribute",
+      "New-geography channel design needs cleaner secondary-sales data"
+    ],
+    "recommended_sales_approach": "Havells is a TradePulse conversation: a branded electricals network, electrician/influencer programs, and regional managers who still run a lot of the channel from lagging reports.",
     "why_relevant_to_user": "Havells is a TradePulse conversation: a branded electricals network, electrician/influencer programs, and regional managers who still run a lot of the channel from lagging reports.",
     "matched_product_ids": [
       "pd_tradepulse"
-    ],
-    "sources": [
-      "https://www.havells.com",
-      "Public channel and brand coverage"
     ]
   }
 ]

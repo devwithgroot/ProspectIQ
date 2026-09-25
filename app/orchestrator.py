@@ -12,6 +12,7 @@ class ProspectIQ:
         self.research_agent = ResearchAgent()
         self.scoring_agent = ScoringAgent()
         self.report_agent = ReportAgent()
+        self.last_state = None
 
     def analyze(
         self,
@@ -44,6 +45,8 @@ class ProspectIQ:
             score=score,
             on_progress=on_progress,
         )
+
+        self.last_state = state
 
         print("\n==============================")
         print("PROSPECTIQ ANALYSIS COMPLETE")

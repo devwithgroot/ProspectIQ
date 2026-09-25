@@ -86,7 +86,9 @@ information that a salesperson should consider.
 
 4. recommended_sales_approach
 Give a practical sales approach based ONLY on
-the evidence and scoring information.
+the evidence and scoring information. Mention
+the kinds of people to talk to (roles, not invented
+names) if the evidence supports it.
 
 Important rules:
 

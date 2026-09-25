@@ -2,7 +2,7 @@
   {
     "profile_id": "pf_ap_001",
     "contact_id": "ct_ap_001",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "bio": "Amit runs network-wide supply-chain planning for decorative and adjacent categories. He cares about depot service levels, festive-season readiness, and whether a tool can sit next to the current SAP extracts.",
     "responsibilities": [
       "National demand and replenishment planning",
@@ -35,7 +35,7 @@
   {
     "profile_id": "pf_ap_002",
     "contact_id": "ct_ap_002",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "bio": "Kavita owns digital programs that touch dealer systems, data platforms, and supply tools. She is the likely internal champion if a vendor can prove it will not create another unused dashboard.",
     "responsibilities": [
       "Digital roadmap for supply and channel systems",
@@ -68,7 +68,7 @@
   {
     "profile_id": "pf_ap_003",
     "contact_id": "ct_ap_003",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "bio": "Rohan manages West region dealer performance. He lives in WhatsApp with dealers and influencers and is skeptical of head-office dashboards that arrive after the month is closed.",
     "responsibilities": [
       "West region secondary sales",
@@ -101,7 +101,7 @@
   {
     "profile_id": "pf_ap_004",
     "contact_id": "ct_ap_004",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "bio": "Deepak runs procurement and vendor onboarding. He has already asked prior vendors not to contact him directly and is a process blocker, not a champion.",
     "responsibilities": [
       "Vendor onboarding",
@@ -128,7 +128,7 @@
   {
     "profile_id": "pf_ts_001",
     "contact_id": "ct_ts_001",
-    "prospect_id": "pr_tata_steel",
+    "company_id": "pr_tata_steel",
     "bio": "Meera owns day-to-day performance at a major Tata Steel plant. She will only look at tools that help the shift huddle and will reject anything that asks her team to abandon the current MES.",
     "responsibilities": [
       "Plant throughput and downtime",
@@ -161,7 +161,7 @@
   {
     "profile_id": "pf_ts_002",
     "contact_id": "ct_ts_002",
-    "prospect_id": "pr_tata_steel",
+    "company_id": "pr_tata_steel",
     "bio": "Arjun leads Industry 4.0 programs and is the translator between plant heads and central digital. He is active in an internal Slack workspace used by the manufacturing-excellence group.",
     "responsibilities": [
       "Industry 4.0 roadmap",
@@ -194,7 +194,7 @@
   {
     "profile_id": "pf_hv_001",
     "contact_id": "ct_hv_001",
-    "prospect_id": "pr_havells",
+    "company_id": "pr_havells",
     "bio": "Sneha owns channel sales performance and the health of the dealer and electrician network. She is measured on secondary sales and program ROI, not on IT architecture.",
     "responsibilities": [
       "National channel sales",
@@ -227,7 +227,7 @@
   {
     "profile_id": "pf_hv_002",
     "contact_id": "ct_hv_002",
-    "prospect_id": "pr_havells",
+    "company_id": "pr_havells",
     "bio": "Vikram runs IT and will be in the room if TradePulse needs DMS or identity integrations. He is not the commercial buyer and has not consented to SMS.",
     "responsibilities": [
       "Enterprise applications",

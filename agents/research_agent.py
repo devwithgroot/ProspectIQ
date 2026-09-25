@@ -232,6 +232,7 @@ class ResearchAgent:
     - acquisitions
     - strategic initiatives
     - market position
+    - leadership and decision makers (who to talk to)
     4. Prefer high-quality evidence.
     5. If sufficient evidence has been collected, finish the research.
     6. If evidence is weak or incomplete, search for better evidence.
@@ -267,6 +268,55 @@ class ResearchAgent:
                 on_progress(line)
 
         return parse_model(ResearchDecision, response)
+
+    def lookup_person(
+        self,
+        *,
+        full_name: str,
+        company_name: str,
+        title: str,
+        research_goal: str,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> list:
+        def note(message: str) -> None:
+            if on_progress is not None and message:
+                on_progress(message)
+
+        query = f'"{full_name}" {company_name} {title}'.strip()
+        note(f"Looking up {full_name} at {company_name}")
+        try:
+            results = self.search_tool.execute(query=query, max_results=3)
+        except Exception as exc:
+            print(f"[Research Agent] Person search failed ({exc})")
+            note(f"Couldn’t find public articles on {full_name}")
+            return []
+
+        note(
+            f"Found {len(results)} article"
+            f"{'' if len(results) == 1 else 's'} on {full_name}"
+        )
+        evaluated = []
+        for result in results:
+            headline = _one_line(getattr(result, "title", "") or "", 80)
+            if headline:
+                note(f"Reading {headline}")
+            evaluated.append(
+                self.evaluator.evaluate(
+                    evidence=result,
+                    research_goal=research_goal,
+                )
+            )
+        useful = [item for item in evaluated if item.relevance >= 0.35]
+        if useful:
+            best = max(useful, key=lambda item: item.relevance)
+            note(
+                f"Why: {len(useful)} of {len(evaluated)} "
+                f"look useful for {full_name}; best is "
+                f"“{_one_line(best.title, 70)}”"
+            )
+        else:
+            note(f"Why: not much public detail yet on {full_name}")
+        return evaluated
 
     def _is_duplicate_query(
         self,

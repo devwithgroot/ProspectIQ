@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.email_verify import otp_required, verifier
-from app.pipeline import SellerPipeline
+from app.outreach import draft_for_contact
+from app.pipeline import ResearchCancelled, ResearchSkipped, SellerPipeline
 from app.prospect_upload import MAX_UPLOAD_BYTES, load_prospect_csv
 from app import research_jobs
 from app.ui_logic import (
@@ -44,6 +45,12 @@ class VerifyStart(BaseModel):
 class VerifyConfirm(BaseModel):
     email: str
     code: str
+
+
+class OutreachDraftRequest(BaseModel):
+    contact_id: str
+    job_id: str | None = None
+    result: dict | None = None
 
 
 @app.get("/health")
@@ -197,12 +204,63 @@ async def research(
     }
 
 
+@app.post("/api/outreach/draft")
+def outreach_draft(payload: OutreachDraftRequest) -> dict:
+    result = payload.result
+    if payload.job_id:
+        job = research_jobs.jobs.get(payload.job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=404,
+                detail="That research run was not found.",
+            )
+        if job.get("result"):
+            result = job["result"]
+    if not result:
+        raise HTTPException(
+            status_code=400,
+            detail="Research results are required to write a draft.",
+        )
+    try:
+        return draft_for_contact(result, payload.contact_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/api/research/{job_id}")
 def research_status(job_id: str) -> dict:
     job = research_jobs.jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="That research run was not found.")
     return job
+
+
+@app.post("/api/research/{job_id}/cancel")
+def cancel_research(job_id: str) -> dict:
+    job = research_jobs.jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="That research run was not found.")
+    if job.get("status") != "running":
+        return job
+    updated = research_jobs.jobs.request_cancel(job_id)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="That research run was not found.")
+    return updated
+
+
+@app.post("/api/research/{job_id}/skip")
+def skip_research_company(job_id: str) -> dict:
+    job = research_jobs.jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="That research run was not found.")
+    if job.get("status") != "running":
+        return job
+    if not job.get("current_company"):
+        return job
+    updated = research_jobs.jobs.request_skip(job_id)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="That research run was not found.")
+    return updated
 
 
 def _run_research_job(
@@ -219,6 +277,11 @@ def _run_research_job(
 ) -> None:
     def on_progress(message: str) -> None:
         research_jobs.jobs.progress(job_id, message)
+        action = research_jobs.jobs.take_control(job_id)
+        if action == "cancel":
+            raise ResearchCancelled()
+        if action == "skip":
+            raise ResearchSkipped()
 
     try:
         result = SellerPipeline().run(
@@ -234,6 +297,11 @@ def _run_research_job(
             on_progress=on_progress,
         )
         research_jobs.jobs.complete(job_id, result.model_dump(mode="json"))
+    except ResearchCancelled as exc:
+        payload = (
+            exc.result.model_dump(mode="json") if exc.result is not None else None
+        )
+        research_jobs.jobs.cancel(job_id, payload)
     except ValueError as exc:
         research_jobs.jobs.fail(job_id, str(exc))
     except Exception:

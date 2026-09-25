@@ -7,10 +7,12 @@ from tests.test_json_util import main as test_json_util
 from tests.test_mock_data import main as test_mock_data
 from tests.test_outreach_agent import main as test_outreach_agent
 from tests.test_outreach_schemas import main as test_outreach_schemas
+from tests.test_people_mapper import main as test_people_mapper
 
 
 TESTS = [
     ("mock data", test_mock_data),
+    ("people mapper", test_people_mapper),
     ("schemas", test_outreach_schemas),
     ("json parse", test_json_util),
     ("connectors", test_connectors),

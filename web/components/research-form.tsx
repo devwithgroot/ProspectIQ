@@ -46,14 +46,23 @@ import {
   researchActivity,
   waitingHint,
 } from "@/lib/research-estimate"
-import { fetchResearchJob, sleep } from "@/lib/research-job"
+import {
+  cancelResearchJob,
+  fetchResearchJob,
+  skipResearchCompany,
+  sleep,
+} from "@/lib/research-job"
 import {
   useResearchHydrated,
   useResearchStore,
   validateCurrentYouDetails,
 } from "@/lib/research-store"
 import type {
-  ProspectReport,
+  Company,
+  CompanyProfile,
+  Contact,
+  ContactProfile,
+  OutreachDraftResponse,
   ResearchJob,
   ResearchResult,
   StagedProspect,
@@ -66,6 +75,7 @@ import {
   isEmail,
   localPhoneDigits,
   validateBriefing,
+  type BriefingDraft,
   validateFullName,
   validatePhone,
   validateUploadFile,
@@ -222,6 +232,22 @@ export function ResearchForm() {
             setPending(false)
             return
           }
+          if (next.status === "cancelled") {
+            const finished = next.result?.companies ?? []
+            if (finished.length && next.result) {
+              setResult(next.result)
+            } else {
+              setNotice({
+                title: "Research stopped",
+                message:
+                  "You can start again from your list whenever you’re ready.",
+              })
+            }
+            setJobId(null)
+            setJob(null)
+            setPending(false)
+            return
+          }
           if (next.status === "error" || next.status === "lost") {
             showError(next.error || "We couldn’t finish research.")
             setJobId(null)
@@ -250,6 +276,7 @@ export function ResearchForm() {
     setJob,
     setJobId,
     setPending,
+    setNotice,
     setResult,
     showError,
   ])
@@ -488,7 +515,7 @@ export function ResearchForm() {
         </h1>
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">
           {pending
-            ? "You can refresh this page. Research keeps running, and we’ll continue from here."
+            ? "You can refresh this page, skip a company, or stop. Research keeps running until you stop it."
             : "Four short steps. We’ll learn your company from your website, then brief you on every company in your list."}
         </p>
       </div>
@@ -496,6 +523,7 @@ export function ResearchForm() {
       {result && !pending ? (
         <Results
           result={result}
+          jobId={jobId}
           onChange={setResult}
           onStartOver={startOver}
         />
@@ -839,11 +867,11 @@ function BriefingEditDialog({
   onClose,
   onSave,
 }: {
-  report: ProspectReport | null
+  report: BriefingDraft | null
   onClose: () => void
-  onSave: (report: ProspectReport) => void
+  onSave: (report: BriefingDraft) => void
 }) {
-  const [draft, setDraft] = useState<ProspectReport | null>(report)
+  const [draft, setDraft] = useState<BriefingDraft | null>(report)
 
   useEffect(() => {
     setDraft(report)
@@ -866,9 +894,9 @@ function BriefingEditDialog({
           id="edit_briefing_name"
           name="edit_briefing_name"
           label="Company name"
-          value={draft.company_name}
+          value={draft.name}
           onChange={(event) =>
-            setDraft({ ...draft, company_name: event.target.value })
+            setDraft({ ...draft, name: event.target.value })
           }
         />
         <div className="space-y-2">
@@ -1594,10 +1622,23 @@ function ResearchingState({
   companies: string[]
   job: ResearchJob | null
 }) {
+  const setJob = useResearchStore((state) => state.setJob)
   const estimate = estimateResearch(companies.length || 1)
   const [now, setNow] = useState(Date.now())
   const [localStart] = useState(() => Date.now())
+  const [control, setControl] = useState<"skip" | "stop" | null>(null)
   const logRef = useRef<HTMLUListElement>(null)
+  const currentCompany = job?.current_company?.trim() || null
+  const stopping =
+    Boolean(job?.cancel_requested) ||
+    control === "stop" ||
+    job?.current === "Stopping research"
+  const skipping =
+    Boolean(job?.skip_requested) ||
+    control === "skip" ||
+    Boolean(currentCompany && job?.current === `Skipping ${currentCompany}`)
+  const canControl =
+    Boolean(job?.job_id) && job?.status === "running" && !stopping
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -1623,6 +1664,22 @@ function ResearchingState({
       node.scrollTop = node.scrollHeight
     }
   }, [activity.done.length, activity.current, hint])
+
+  async function sendControl(action: "skip" | "stop") {
+    if (!job?.job_id || !canControl) {
+      return
+    }
+    setControl(action)
+    try {
+      const next =
+        action === "skip"
+          ? await skipResearchCompany(job.job_id)
+          : await cancelResearchJob(job.job_id)
+      setJob(next)
+    } catch {
+      setControl(null)
+    }
+  }
 
   return (
     <div className="space-y-5 py-1 text-sm">
@@ -1651,6 +1708,34 @@ function ResearchingState({
         ))}
         <ProgressLine text={activity.current} active hint={hint} />
       </ul>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+        {canControl && currentCompany && !skipping ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="max-w-[16rem] text-muted-foreground"
+            onClick={() => void sendControl("skip")}
+          >
+            <span className="truncate">Skip {currentCompany}</span>
+          </Button>
+        ) : (
+          <span />
+        )}
+        {canControl ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-muted-foreground"
+            onClick={() => void sendControl("stop")}
+          >
+            Stop research
+          </Button>
+        ) : stopping ? (
+          <p className="ml-auto text-xs text-muted-foreground">Stopping…</p>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -1729,17 +1814,182 @@ function Field({
   )
 }
 
+function PeopleList({
+  contacts,
+  profiles,
+  jobId,
+  result,
+}: {
+  contacts: Contact[]
+  profiles: ContactProfile[]
+  jobId: string | null
+  result: ResearchResult
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [draft, setDraft] = useState<OutreachDraftResponse | null>(null)
+
+  async function writeDraft(contact: Contact) {
+    setBusyId(contact.contact_id)
+    try {
+      const response = await fetch(`${API_URL}/api/outreach/draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact_id: contact.contact_id,
+          job_id: jobId,
+          result,
+        }),
+      })
+      const body = (await response.json().catch(() => ({}))) as
+        | OutreachDraftResponse
+        | { detail?: string }
+      if (!response.ok) {
+        const detail =
+          typeof body === "object" && body && "detail" in body
+            ? String(body.detail)
+            : "We couldn’t write that draft."
+        useResearchStore.getState().showError(detail)
+        return
+      }
+      setDraft(body as OutreachDraftResponse)
+    } catch (error) {
+      useResearchStore.getState().showError(error)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (contacts.length === 0) {
+    return (
+      <p className="text-muted-foreground">No people listed for this company yet.</p>
+    )
+  }
+
+  const shown = draft?.drafts[0]
+
+  return (
+    <div>
+      <p className="font-medium">People</p>
+      <ul className="mt-2 space-y-3">
+        {contacts.map((contact) => {
+          const profile = profiles.find(
+            (item) => item.contact_id === contact.contact_id
+          )
+          return (
+            <li key={contact.contact_id} className="text-muted-foreground">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-foreground">
+                    {contact.full_name}
+                    {contact.title ? ` · ${contact.title}` : ""}
+                  </p>
+                  {profile?.bio ? <p>{profile.bio}</p> : null}
+                  {profile?.recommended_approach ? (
+                    <p>
+                      <span className="font-medium text-foreground">
+                        Approach.{" "}
+                      </span>
+                      {profile.recommended_approach}
+                    </p>
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={busyId === contact.contact_id}
+                  onClick={() => writeDraft(contact)}
+                >
+                  {busyId === contact.contact_id ? "Writing…" : "Write draft"}
+                </Button>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+
+      <Dialog open={draft !== null} onOpenChange={(open) => !open && setDraft(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Draft for {draft?.contact_name ?? "this person"}
+            </DialogTitle>
+            <DialogDescription>
+              {draft?.skipped_reason
+                ? draft.skipped_reason
+                : "Dry-run only. Nothing is sent."}
+            </DialogDescription>
+          </DialogHeader>
+          {shown ? (
+            <div className="space-y-3 text-sm">
+              <p>
+                <span className="font-medium">Channel. </span>
+                {shown.channel}
+              </p>
+              {shown.subject ? (
+                <p>
+                  <span className="font-medium">Subject. </span>
+                  {shown.subject}
+                </p>
+              ) : null}
+              <p className="whitespace-pre-wrap leading-6">{shown.body}</p>
+              {shown.rationale ? (
+                <p className="text-muted-foreground">{shown.rationale}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDraft(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function briefingDraftFrom(
+  companies: Company[],
+  profiles: CompanyProfile[],
+  index: number
+): BriefingDraft | null {
+  const profile = profiles[index]
+  if (!profile) {
+    return null
+  }
+  const company = companies.find((item) => item.company_id === profile.company_id)
+  return {
+    company_id: profile.company_id,
+    name: company?.name ?? "",
+    executive_summary: profile.executive_summary,
+    overall_score: profile.overall_score,
+    recommendation: profile.recommendation,
+    key_signals: (profile.signals ?? []).map((signal) => signal.description),
+    risks: profile.risks,
+    recommended_sales_approach: profile.recommended_sales_approach,
+  }
+}
+
 function Results({
   result,
+  jobId,
   onChange,
   onStartOver,
 }: {
   result: ResearchResult
+  jobId: string | null
   onChange: (next: ResearchResult) => void
   onStartOver: () => void
 }) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  const editing = editingIndex === null ? null : result.reports[editingIndex]
+  const companies = result.companies ?? []
+  const profiles = result.company_profiles ?? []
+  const editing =
+    editingIndex === null
+      ? null
+      : briefingDraftFrom(companies, profiles, editingIndex)
 
   return (
     <div id="research-results" className="space-y-6">
@@ -1748,8 +1998,8 @@ function Results({
           Check these briefings for {result.user.company.name}
         </AlertTitle>
         <AlertDescription>
-          {result.prospects.length} compan
-          {result.prospects.length === 1 ? "y" : "ies"} researched for{" "}
+          {companies.length} compan
+          {companies.length === 1 ? "y" : "ies"} researched for{" "}
           {result.user.full_name}. Edit anything that looks off before you keep
           it.
         </AlertDescription>
@@ -1791,18 +2041,22 @@ function Results({
 
       <div className="space-y-3">
         <h2 className="font-heading text-lg">Company briefings</h2>
-        {result.reports.map((report, index) => {
-          const prospect = result.prospects[index]
+        {profiles.map((profile, index) => {
+          const company = companies.find(
+            (item) => item.company_id === profile.company_id
+          )
+          const signals = (profile.signals ?? []).map(
+            (signal) => signal.description
+          )
           return (
-            <Card key={`${report.company_name}-${index}`}>
+            <Card key={profile.profile_id || `${profile.company_id}-${index}`}>
               <CardHeader>
                 <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle>{report.company_name}</CardTitle>
+                  <CardTitle>{company?.name ?? "Company"}</CardTitle>
                   <Badge variant="secondary">
-                    Score{" "}
-                    {prospect?.overall_score.toFixed(0) ?? report.prospect_score}
+                    Score {profile.overall_score.toFixed(0)}
                   </Badge>
-                  <Badge variant="outline">{report.recommendation}</Badge>
+                  <Badge variant="outline">{profile.recommendation}</Badge>
                   <Button
                     type="button"
                     variant="ghost"
@@ -1815,11 +2069,11 @@ function Results({
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 text-sm leading-6">
-                <p>{report.executive_summary}</p>
+                <p>{profile.executive_summary}</p>
                 <div>
                   <p className="font-medium">Why they look interesting</p>
                   <ul className="list-disc pl-5 text-muted-foreground">
-                    {report.key_signals.map((signal) => (
+                    {signals.map((signal) => (
                       <li key={signal}>{signal}</li>
                     ))}
                   </ul>
@@ -1827,15 +2081,25 @@ function Results({
                 <div>
                   <p className="font-medium">Watch-outs</p>
                   <ul className="list-disc pl-5 text-muted-foreground">
-                    {report.risks.map((risk) => (
+                    {profile.risks.map((risk) => (
                       <li key={risk}>{risk}</li>
                     ))}
                   </ul>
                 </div>
                 <p>
                   <span className="font-medium">Suggested approach. </span>
-                  {report.recommended_sales_approach}
+                  {profile.recommended_sales_approach}
                 </p>
+                <PeopleList
+                  contacts={(result.contacts ?? []).filter(
+                    (contact) => contact.company_id === profile.company_id
+                  )}
+                  profiles={(result.contact_profiles ?? []).filter(
+                    (item) => item.company_id === profile.company_id
+                  )}
+                  jobId={jobId}
+                  result={result}
+                />
               </CardContent>
             </Card>
           )
@@ -1860,16 +2124,35 @@ function Results({
           if (editingIndex === null) {
             return
           }
-          const reports = result.reports.slice()
-          reports[editingIndex] = next
-          const prospects = result.prospects.slice()
-          if (prospects[editingIndex]) {
-            prospects[editingIndex] = {
-              ...prospects[editingIndex],
-              company_name: next.company_name,
+          const nextCompanies = companies.slice()
+          const nextProfiles = profiles.slice()
+          const companyIndex = nextCompanies.findIndex(
+            (item) => item.company_id === next.company_id
+          )
+          if (companyIndex >= 0) {
+            nextCompanies[companyIndex] = {
+              ...nextCompanies[companyIndex],
+              name: next.name,
             }
           }
-          onChange({ ...result, reports, prospects })
+          nextProfiles[editingIndex] = {
+            ...nextProfiles[editingIndex],
+            executive_summary: next.executive_summary,
+            overall_score: next.overall_score,
+            recommendation: next.recommendation,
+            signals: next.key_signals.map((description) => ({
+              type: "research",
+              description,
+              strength: "medium",
+            })),
+            risks: next.risks,
+            recommended_sales_approach: next.recommended_sales_approach,
+          }
+          onChange({
+            ...result,
+            companies: nextCompanies,
+            company_profiles: nextProfiles,
+          })
           setEditingIndex(null)
         }}
       />

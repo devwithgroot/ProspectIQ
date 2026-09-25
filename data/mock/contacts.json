@@ -1,7 +1,7 @@
 [
   {
     "contact_id": "ct_ap_001",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "full_name": "Amit Sharma",
     "title": "Vice President, Supply Chain",
     "seniority": "vp",
@@ -25,7 +25,7 @@
   },
   {
     "contact_id": "ct_ap_002",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "full_name": "Kavita Rao",
     "title": "Head of Digital Transformation",
     "seniority": "director",
@@ -49,7 +49,7 @@
   },
   {
     "contact_id": "ct_ap_003",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "full_name": "Rohan Iyer",
     "title": "Regional Sales Manager, West",
     "seniority": "manager",
@@ -73,7 +73,7 @@
   },
   {
     "contact_id": "ct_ap_004",
-    "prospect_id": "pr_asian_paints",
+    "company_id": "pr_asian_paints",
     "full_name": "Deepak Nair",
     "title": "Head of Procurement",
     "seniority": "director",
@@ -97,7 +97,7 @@
   },
   {
     "contact_id": "ct_ts_001",
-    "prospect_id": "pr_tata_steel",
+    "company_id": "pr_tata_steel",
     "full_name": "Meera Kulkarni",
     "title": "Plant Head, Jamshedpur",
     "seniority": "director",
@@ -121,7 +121,7 @@
   },
   {
     "contact_id": "ct_ts_002",
-    "prospect_id": "pr_tata_steel",
+    "company_id": "pr_tata_steel",
     "full_name": "Arjun Sen",
     "title": "Head of Industry 4.0",
     "seniority": "director",
@@ -145,7 +145,7 @@
   },
   {
     "contact_id": "ct_hv_001",
-    "prospect_id": "pr_havells",
+    "company_id": "pr_havells",
     "full_name": "Sneha Gupta",
     "title": "Director, Channel Sales",
     "seniority": "director",
@@ -169,7 +169,7 @@
   },
   {
     "contact_id": "ct_hv_002",
-    "prospect_id": "pr_havells",
+    "company_id": "pr_havells",
     "full_name": "Vikram Patel",
     "title": "Head of IT",
     "seniority": "director",

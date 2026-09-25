@@ -14,7 +14,8 @@ from config.excon_schemas import (
     OutreachEvent,
     OutreachPackage,
     Product,
-    Prospect,
+    Company,
+    CompanyProfile,
     SendResult,
     User,
 )
@@ -50,7 +51,8 @@ class Excon:
     def prepare(
         self,
         user: User,
-        prospect: Prospect,
+        company: Company,
+        company_profile: CompanyProfile,
         profiles: list[ContactProfile],
         contacts: list[Contact],
         products: list[Product],
@@ -77,13 +79,13 @@ class Excon:
                 )
                 continue
 
-            if contact.prospect_id != prospect.prospect_id:
+            if contact.company_id != company.company_id:
                 packages.append(
                     OutreachPackage(
                         contact_id=contact.contact_id,
                         profile_id=profile.profile_id,
                         drafts=[],
-                        skipped_reason="Contact does not belong to this prospect.",
+                        skipped_reason="Contact does not belong to this company.",
                     )
                 )
                 continue
@@ -91,7 +93,8 @@ class Excon:
             package = self.outreach.prepare_package(
                 user=user,
                 products=products,
-                prospect=prospect,
+                company=company,
+                company_profile=company_profile,
                 contact=contact,
                 profile=profile,
                 dnc=self.dnc,
@@ -110,7 +113,7 @@ class Excon:
         return OutreachBatch(
             batch_id=f"ob_{uuid4().hex[:12]}",
             user_id=user.user_id,
-            prospect_id=prospect.prospect_id,
+            company_id=company.company_id,
             packages=packages,
             created_at=_utc_now(),
         )

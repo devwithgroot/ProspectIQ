@@ -33,7 +33,7 @@ def main():
     draft = OutreachDraft(
         draft_id="dr_test",
         contact_id=contact.contact_id,
-        prospect_id=contact.prospect_id,
+        company_id=contact.company_id,
         profile_id="pf_ap_001",
         channel="email",
         subject="Hello",
