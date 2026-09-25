@@ -175,3 +175,87 @@ class ProspectReport(BaseModel):
     evidence: list[Evidence] = Field(
         default_factory=list
     )
+
+
+
+class PersonData(BaseModel):
+    """
+    Structured information about a person/prospect.
+    """
+
+    id: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    name: str | None = None
+    title: str | None = None
+
+    email: str | None = None
+    email_status: str | None = None
+
+    linkedin_url: str | None = None
+
+    organization_name: str | None = None
+    organization_id: str | None = None
+
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+
+    seniority: str | None = None
+    departments: list[str] = Field(
+        default_factory=list
+    )
+
+
+class CompanyData(BaseModel):
+    """
+    Structured company information returned by the
+    company data provider.
+    """
+
+    id: str | None = None
+
+    company_name: str
+    website: str | None = None
+    linkedin_url: str | None = None
+
+    description: str | None = None
+    industry: str | None = None
+
+    employee_count: int | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    employee_growth_6m: float | None = None
+    employee_growth_12m: float | None = None
+    employee_growth_24m: float | None = None
+
+    annual_revenue: float | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    total_funding: float | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    latest_funding_stage: str | None = None
+    latest_funding_date: str | None = None
+
+    founded_year: int | None = Field(
+        default=None,
+        ge=1000,
+        le=2100,
+    )
+
+    headquarters: str | None = None
+
+    technologies: list[str] = Field(
+        default_factory=list
+    )
+
+    people: list[PersonData] = Field(
+        default_factory=list
+    )
