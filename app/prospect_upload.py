@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import csv
+from pathlib import Path
+
+from pydantic import BaseModel
+
+
+class UploadedProspect(BaseModel):
+    company_name: str
+    website: str | None = None
+    notes: str | None = None
+
+
+REQUIRED_COLUMN = "company_name"
+
+
+def load_prospect_csv(path: str | Path) -> list[UploadedProspect]:
+    csv_path = Path(path)
+    if not csv_path.is_file():
+        raise FileNotFoundError(f"Prospect CSV not found: {csv_path}")
+
+    with csv_path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        if not reader.fieldnames:
+            raise ValueError("Prospect CSV has no header row.")
+
+        headers = {
+            name.strip().lower(): name
+            for name in reader.fieldnames
+            if name and name.strip()
+        }
+
+        if REQUIRED_COLUMN not in headers:
+            raise ValueError(
+                "Prospect CSV must include a company_name column."
+            )
+
+        rows: list[UploadedProspect] = []
+        seen: set[str] = set()
+
+        for index, raw in enumerate(reader, start=2):
+            name = (raw.get(headers[REQUIRED_COLUMN]) or "").strip()
+            if not name:
+                raise ValueError(f"Row {index} is missing company_name.")
+
+            key = name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+
+            website = _optional(raw, headers, "website")
+            notes = _optional(raw, headers, "notes")
+
+            rows.append(
+                UploadedProspect(
+                    company_name=name,
+                    website=website,
+                    notes=notes,
+                )
+            )
+
+    if not rows:
+        raise ValueError("Prospect CSV does not contain any companies.")
+
+    return rows
+
+
+def _optional(
+    raw: dict[str, str | None],
+    headers: dict[str, str],
+    column: str,
+) -> str | None:
+    source = headers.get(column)
+    if not source:
+        return None
+    value = (raw.get(source) or "").strip()
+    return value or None

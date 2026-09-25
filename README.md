@@ -20,13 +20,14 @@ Phase 3  EXCON — draft, edit, approve, send
 Phase 4  Analytics, UI, reports
 ```
 
-Today Phases 1–2 exist as a company research/scoring pipeline. Phase 3 EXCON is implemented against comprehensive mocks that look like the future Phase 1–2 output. Phase 4 is not built.
+Seller onboarding + CSV upload now run the existing orchestrator for each uploaded company. Phase 3 EXCON still uses mock contacts until contact discovery exists. Phase 4 is not built.
 
 ## Docs
 
 | Doc | What it covers |
 |---|---|
 | [docs/USER_FLOW.md](docs/USER_FLOW.md) | How a seller uses the product, now vs intended |
+| [docs/PIPELINE.md](docs/PIPELINE.md) | Onboard + CSV + live orchestrator (MLX, Tavily) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, machines, and how they connect |
 | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | User, prospect, contact, profile, outreach objects |
 | [docs/EXCON.md](docs/EXCON.md) | Outreach connectors, approval, dry-run |
@@ -75,7 +76,20 @@ mlx_lm.server \
 
 ## Run
 
-Company research (Phase 1 pipeline):
+Seller form + prospect upload (orchestrator runs after the CSV):
+
+```bash
+./run_pipeline.sh \
+  --name "Priya Mehta" \
+  --phone "+919845512210" \
+  --email "priya.mehta@nexusflow.io" \
+  --website "https://www.zoho.com" \
+  --prospects data/uploads/sample_prospects.csv
+```
+
+Omit the flags to be prompted. Each uploaded `company_name` is passed to live `ProspectIQ.analyze()` (Tavily + MLX). Results land in `data/runs/`. Details: [docs/PIPELINE.md](docs/PIPELINE.md).
+
+Company research only:
 
 ```bash
 python -m tests.test_orchestrator
@@ -93,7 +107,7 @@ That runs mock/schema/connector checks, then live outreach + EXCON against Qwen.
 
 ```text
 agents/          Research, scoring, report, outreach
-app/             ProspectIQ.analyze() and Excon
+app/             ProspectIQ.analyze(), seller pipeline, Excon
 config/          Research schemas + EXCON schemas
 connectors/      Email, LinkedIn, WhatsApp, Slack, SMS
 data/mock/       Seller, products, prospects, contacts, profiles

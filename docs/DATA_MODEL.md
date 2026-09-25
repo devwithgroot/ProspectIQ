@@ -1,6 +1,6 @@
 # Data model
 
-EXCON and the mocks use this graph. Phase 1–2 research objects stay in `config/schemas.py` and will map into `Prospect` later.
+The pipeline builds `User`, `Product`, and `Prospect` live. EXCON still reads people from `data/mock/`. Research objects live in `config/schemas.py`; seller/outreach objects live in `config/excon_schemas.py`.
 
 ```text
 User ──owns──► Product
@@ -26,7 +26,7 @@ One thing the seller can pitch. Prospects point at these with `matched_product_i
 
 Includes ICP, target industries, value props, use cases, differentiators, objections, typical buyer titles, pricing note, proof points.
 
-Onboarding should infer these from the company site; the seller should be able to edit them.
+`OnboardingAgent` infers these from the company site via MLX. The seller should be able to edit them; that UI is not built yet.
 
 ## Prospect (company of interest)
 
@@ -84,14 +84,17 @@ Bio, responsibilities, interests, recent activity, communication style, likely p
 
 Load with `data.loader.load_mock_bundle()`.
 
-## Mapping from today's research pipeline
+## Mapping from the live pipeline
 
-`ProspectIQ.analyze()` returns `ProspectReport` (summary, score, signals, evidence). That is company-only.
+`SellerPipeline` already does:
 
-Future adapter:
+1. Signup fields + website → `User` + `Product` list (MLX)
+2. Upload rows → `UploadedProspect`
+3. `ProspectIQ.analyze()` → `ProspectReport`
+4. `report_to_prospect()` → `Prospect` written to `data/runs/<timestamp>/`
 
-1. `ProspectReport` → `Prospect`
-2. New contact finder → `Contact` list
-3. New profile builder → `ContactProfile` list
-4. Signup + website → `User` + `Product` list
-5. Upload rows → `Prospect` shells before research
+Still future:
+
+1. Contact finder → `Contact` list
+2. Profile builder → `ContactProfile` list
+3. Point EXCON at `data/runs/` instead of `data/mock/`
