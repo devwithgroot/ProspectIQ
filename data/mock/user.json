@@ -1,0 +1,28 @@
+{
+  "user_id": "us_priya_mehta",
+  "full_name": "Priya Mehta",
+  "title": "Account Executive",
+  "email": "priya.mehta@nexusflow.io",
+  "phone": "+919845512210",
+  "linkedin_url": "https://www.linkedin.com/in/priya-mehta-nexusflow",
+  "locale": "en-IN",
+  "product_ids": [
+    "pd_demand_planning",
+    "pd_plantconnect",
+    "pd_tradepulse"
+  ],
+  "company": {
+    "name": "NexusFlow",
+    "industry": "Enterprise supply-chain and industrial software",
+    "website": "https://www.nexusflow.io",
+    "size": "180 employees",
+    "headquarters": "Bengaluru, India",
+    "description": "NexusFlow builds planning, plant-visibility, and channel-analytics software for manufacturers and branded consumer companies that run complex India and APAC supply networks."
+  },
+  "voice": {
+    "tone": "professional, concise, and specific to the contact's role",
+    "signature": "Priya Mehta\nAccount Executive, NexusFlow\npriya.mehta@nexusflow.io",
+    "calendar_link": "https://cal.nexusflow.io/priya-mehta",
+    "cta": "Suggest a 20-minute working session, not a generic demo."
+  }
+}

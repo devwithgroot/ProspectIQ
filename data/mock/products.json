@@ -1,0 +1,134 @@
+[
+  {
+    "product_id": "pd_demand_planning",
+    "name": "NexusFlow Demand Planning",
+    "category": "Supply-chain planning",
+    "description": "A demand-planning workspace that combines sell-out, dealer, and plant data so manufacturers can forecast SKU-level demand and reduce stockouts without adding planner headcount.",
+    "icp": "Branded manufacturers with 500+ SKUs, multi-depot networks, and a mix of modern trade plus traditional dealers.",
+    "target_industries": [
+      "paints and coatings",
+      "FMCG",
+      "building materials",
+      "consumer durables"
+    ],
+    "value_props": [
+      "SKU-depot forecasts that planners can explain to finance",
+      "Faster consensus planning between sales, supply, and plants",
+      "Fewer emergency transfers between depots"
+    ],
+    "use_cases": [
+      "Monthly consensus demand plan",
+      "Promotional lift planning for festive seasons",
+      "New-depot ramp forecasting"
+    ],
+    "differentiators": [
+      "Built for India dealer and distributor data, not only modern-trade POS",
+      "Works with existing SAP or Oracle planning extracts",
+      "Planners keep control; the model does not silently overwrite the plan"
+    ],
+    "objections": [
+      "We already have SAP IBP or a homegrown Excel model",
+      "Master data across depots is too messy",
+      "IT does not want another planning system"
+    ],
+    "typical_buyers": [
+      "VP Supply Chain",
+      "Head of Demand Planning",
+      "CFO operations partner",
+      "Head of Sales Operations"
+    ],
+    "pricing_model": "Annual subscription by number of active SKUs and depots. Implementation is scoped separately.",
+    "proof_points": [
+      "A South India coatings manufacturer cut depot emergency transfers by 18% in two quarters.",
+      "A durables brand reduced festive-season stockouts on top 200 SKUs without raising safety stock."
+    ]
+  },
+  {
+    "product_id": "pd_plantconnect",
+    "name": "NexusFlow PlantConnect",
+    "category": "Industrial visibility",
+    "description": "A plant-visibility layer that pulls machine, batch, and downtime signals into one operations view so plant and central teams can see bottlenecks the same way.",
+    "icp": "Process and discrete manufacturers running multiple plants, with a live Industry 4.0 or reliability program.",
+    "target_industries": [
+      "metals",
+      "automotive components",
+      "chemicals",
+      "paints and coatings"
+    ],
+    "value_props": [
+      "One downtime and throughput picture across plants",
+      "Faster root-cause reviews without waiting for a monthly MIS",
+      "Connects to common historians and PLC gateways"
+    ],
+    "use_cases": [
+      "Daily plant performance huddle",
+      "Cross-plant bottleneck comparison",
+      "Maintenance and production exception alerts"
+    ],
+    "differentiators": [
+      "Does not require ripping out the existing MES",
+      "Role-based views for plant heads and central ops",
+      "India-first implementation partners and on-site support"
+    ],
+    "objections": [
+      "We are already buying a historian or APM suite",
+      "OT networks are air-gapped",
+      "Plant teams will not adopt another dashboard"
+    ],
+    "typical_buyers": [
+      "Plant Head",
+      "Head of Manufacturing Excellence",
+      "Head of Industry 4.0",
+      "CTO operations"
+    ],
+    "pricing_model": "Annual subscription per connected production line, plus a one-time plant onboarding fee.",
+    "proof_points": [
+      "A multi-plant metals customer cut unplanned downtime review time from days to the same shift.",
+      "A coatings plant used line-level visibility to justify a single bottleneck capex instead of a full line upgrade."
+    ]
+  },
+  {
+    "product_id": "pd_tradepulse",
+    "name": "NexusFlow TradePulse",
+    "category": "Channel and dealer analytics",
+    "description": "Dealer and distributor analytics that show which outlets, regions, and influencers are actually moving product, so channel teams stop managing the network from last month's Excel.",
+    "icp": "Branded companies with 1,000+ dealers or distributors and a growing influencer or painter/contractor program.",
+    "target_industries": [
+      "paints and coatings",
+      "electricals",
+      "building materials",
+      "auto aftermarket"
+    ],
+    "value_props": [
+      "Live dealer health instead of month-end claims",
+      "Better targeting of painter, electrician, or contractor programs",
+      "Early warning when a high-potential depot starts slipping"
+    ],
+    "use_cases": [
+      "Dealer scorecards for regional managers",
+      "Influencer program ROI",
+      "New-geography channel design"
+    ],
+    "differentiators": [
+      "Handles cash-and-carry and informal dealer data, not only DMS-perfect accounts",
+      "Mobile review for regional managers",
+      "Connects claims, secondary sales, and program spend"
+    ],
+    "objections": [
+      "Our DMS is already supposed to do this",
+      "Dealers will not share secondary data",
+      "Regional teams will see this as surveillance"
+    ],
+    "typical_buyers": [
+      "Director Channel Sales",
+      "Head of Sales Operations",
+      "CMO retail",
+      "Regional Sales Head"
+    ],
+    "pricing_model": "Annual subscription by active dealers plus optional influencer-program module.",
+    "proof_points": [
+      "An electricals brand found 14% of program spend sitting on inactive influencers.",
+      "A coatings company used depot-level secondary sales to reopen a stalled East India expansion case."
+    ]
+  }
+]

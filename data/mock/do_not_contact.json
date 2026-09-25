@@ -1,0 +1,22 @@
+[
+  {
+    "kind": "contact_id",
+    "value": "ct_ap_004",
+    "reason": "Contact asked not to be emailed or called after a prior vendor outreach."
+  },
+  {
+    "kind": "email",
+    "value": "deepak.nair@asianpaints.com",
+    "reason": "Same contact as ct_ap_004."
+  },
+  {
+    "kind": "phone",
+    "value": "+919867700440",
+    "reason": "Same contact as ct_ap_004."
+  },
+  {
+    "kind": "email",
+    "value": "vendor.spam@blocked.example",
+    "reason": "Hard bounce / suppression fixture."
+  }
+]
