@@ -1,6 +1,6 @@
 # User flow
 
-This is the product path a salesperson is supposed to take. Only the research and EXCON engines exist today. The signup UI, company-from-link onboarding, and prospect upload are the next application layer.
+This is the product path a salesperson is supposed to take. Steps 1–4 run today from the CLI (`./run_pipeline.sh`) on MLX and Tavily. There is no browser form yet. Contacts and outreach still use fixtures.
 
 ## Intended path
 
@@ -27,16 +27,15 @@ That becomes the `User` record: who is sending, how they sign messages, and whic
 
 ### 2. Company from a link
 
-They paste their company website (and later, maybe a LinkedIn company URL).
+They paste their company website.
 
-ProspectIQ should then:
+`OnboardingAgent` then:
 
-1. Fetch the page with `WebsiteReaderTool`
-2. Research the company the same way we research a prospect (search + evidence)
-3. Fill `SellerCompany`: name, industry, description, size, HQ
-4. Infer `Product` list: what they sell, ICP, value props, typical buyers
+1. Fetches the page with `WebsiteReaderTool`
+2. Asks MLX to fill `SellerCompany` (name, industry, description, size, HQ)
+3. Infers the `Product` list: what they sell, ICP, value props, typical buyers
 
-The seller can correct that before anything is messaged. Outreach is only as good as this seller context. Without it, drafts are generic.
+If the page cannot be fetched, MLX still runs on the URL alone. The seller should be able to correct the result before outreach; that edit step is not in the CLI yet.
 
 ### 3. Optional prospect upload
 
@@ -49,7 +48,7 @@ They may already have a list. Upload (CSV / sheet) with at least:
 | notes | no | Why they care |
 | owner | no | If a team later |
 
-Uploaded rows become `Prospect` shells with `source = upload`. Phase 1 then researches each one: signals, pain points, score, `why_relevant_to_user`, `matched_product_ids`.
+Uploaded rows go straight into `ProspectIQ.analyze()`. Each company is researched with Tavily, scored and reported with MLX, then mapped to a `Prospect` (`signals`, `pain_points`, score, `why_relevant_to_user`, `matched_product_ids`). See [PIPELINE.md](PIPELINE.md).
 
 If they upload nothing, Phase 1 can later *discover* prospects from the seller ICP. That discovery path is not built yet. Upload is the first supported way to get companies into the system.
 
@@ -85,15 +84,19 @@ Not built. The event log already records `drafted`, `edited`, `approved`, `rejec
 
 ## What works if you run the repo today
 
-There is no signup screen. The flow is exercised as code + fixtures:
+The first application slice is a CLI form, not a browser UI. It uses the same MLX and Tavily clients as the rest of the repo.
 
-1. `data/mock/user.json` — Priya Mehta (stands in for step 1–2)
-2. `data/mock/products.json` — NexusFlow products (stands in for company-from-link)
-3. `data/mock/prospects.json` — Asian Paints, Tata Steel, Havells (stands in for upload + research)
-4. `data/mock/contacts.json` + `profiles.json` — people and researched profiles
-5. `./run_excon.sh` — drafts real Qwen copy, approve/send stays dry-run
+1. Enter name, phone, email, and company website (`./run_pipeline.sh` or `python -m app.pipeline`)
+2. Point at a prospect CSV (`company_name`, optional `website`, `notes`)
+3. Onboarding reads the seller site and infers company + products via MLX
+4. Live `ProspectIQ.analyze()` runs for **each uploaded company** (Tavily + MLX)
+5. Researched prospects are saved under `data/runs/`
 
-Company-only research (no people) still runs through `ProspectIQ.analyze(company_name, research_goal)`.
+Sample file: `data/uploads/sample_prospects.csv`.
+
+Contacts are still mock (`data/mock/contacts.json`) until contact discovery exists. `./run_excon.sh` still drafts from those fixtures.
+
+Company-only research without onboarding still runs through `ProspectIQ.analyze(company_name, research_goal)`.
 
 ## Rules the UI must keep
 

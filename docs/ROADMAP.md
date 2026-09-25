@@ -9,13 +9,14 @@ Four phases. Build in this order. Do not skip seller context or approval.
 - Autonomous research loop (planner + Tavily + evidence scores)
 - Five-dimension scoring with deterministic weights
 - Company `ProspectReport`
+- Seller website onboarding (`WebsiteReaderTool` + MLX)
+- Prospect CSV upload → live `analyze()` per company
+- Reports saved under `data/runs/`
 
 **Next**
 
-- Wire `WebsiteReaderTool` into research and into seller onboarding
 - Company-data provider (BDL or equivalent) behind `CompanyDataTool`
-- Persist evidence and scores
-- Accept uploaded prospect lists as research inputs
+- Database persistence (runs are JSON files today)
 - Discover contacts at a researched company
 
 ## Phase 2 — Company + lead summary
@@ -23,13 +24,12 @@ Four phases. Build in this order. Do not skip seller context or approval.
 **Now**
 
 - Report agent writes an executive summary, signals, risks, sales approach
-- Mock `Prospect`, `Contact`, and `ContactProfile` records that show the target shape
+- `report_to_prospect()` maps a live report into `Prospect`
+- Seller company + products inferred from the website
+- Mock `Contact` and `ContactProfile` records until people are researched
 
 **Next**
 
-- Map `ProspectReport` → `Prospect`
-- Summarize the seller company from their website
-- Infer and confirm products / ICP
 - Build real contact profiles (not fixtures)
 - Store the joined graph User → Products → Prospects → Contacts → Profiles
 
@@ -58,21 +58,17 @@ Four phases. Build in this order. Do not skip seller context or approval.
 
 **Next**
 
-- Signup: name, phone, email
-- Company-from-link onboarding
-- Prospect CSV upload
+- Browser UI for the CLI form
 - Prospect list → contact list → draft reviewer
 - Dashboards on drafted / approved / sent / failed
-- Saved reports per prospect
+- Browse `data/runs/` reports in the UI
 
 ## Near-term application slice
 
-The first UI that matches the intended user flow, without waiting for every provider:
+Done as a CLI, not a browser UI:
 
-1. Form: name, phone, email, company URL
-2. Optional CSV of prospect company names
-3. Run existing `ProspectIQ.analyze()` per uploaded company
-4. Keep using mock contacts until contact discovery exists
-5. Run EXCON on the seller (from the form + site) + those prospects
-
-That slice is enough to demo the full story: identity → company → uploaded prospects → research → drafts → approve.
+1. Form: name, phone, email, company URL — `./run_pipeline.sh`
+2. CSV of prospect companies — `data/uploads/sample_prospects.csv`
+3. `ProspectIQ.analyze()` runs for each uploaded company
+4. Mock contacts still used for EXCON
+5. Next: wire the saved seller + researched prospects into EXCON, then a real UI

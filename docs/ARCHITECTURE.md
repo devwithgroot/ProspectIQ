@@ -14,9 +14,30 @@ Mac mini :8080
   MLX-LM  →  mlx-community/Qwen3-8B-4bit
 ```
 
-`LLMClient` is the only module that knows the MLX URL and model name. Agents call `llm.generate()`. Outreach also runs responses through `llm/json_util.py` (strip fences / `<think>`, retry once).
+`LLMClient` is the only module that knows the MLX URL and model name. Agents call `llm.generate()`. Structured calls also run through `llm/json_util.py` (strip fences / `<think>`, retry once). Tavily is only used through `WebSearchTool`.
 
-## Two pipelines
+## Seller pipeline (current entry)
+
+See [PIPELINE.md](PIPELINE.md). After signup fields + CSV, the orchestrator runs on the real APIs:
+
+```text
+name, phone, email, website
+        │
+        ▼
+WebsiteReaderTool + MLX     →  User + Products
+        │
+        ▼
+CSV (company_name, ...)
+        │
+        ▼
+ProspectIQ.analyze()  ×  each row
+   MLX planner + Tavily + MLX score + MLX report
+        │
+        ▼
+report_to_prospect()  →  data/runs/
+```
+
+## Two engines after that
 
 ```text
                     ┌─ ProspectIQ.analyze() ─┐
@@ -26,7 +47,7 @@ Company name + goal │  ResearchAgent         │
                     └──────────┬─────────────┘
                                │ ProspectReport
                                ▼
-                    (future) map into Prospect + Contacts
+                    report_to_prospect() → Prospect
 
                     ┌─ Excon.prepare() ──────┐
 User + Products     │  OutreachAgent         │
@@ -36,7 +57,7 @@ Contacts + Profiles │  Connectors            │
                                │ OutreachBatch + events
 ```
 
-They are intentionally separate. `analyze()` is company-level. EXCON needs people. Phases 1–2 will join them by emitting `Prospect`, `Contact`, and `ContactProfile` objects.
+`analyze()` is company-level. EXCON still needs people. Contacts remain mock until a contact finder exists. `data/runs/` already has the researched `Prospect` objects.
 
 ## Phase 1 research loop
 
@@ -74,7 +95,7 @@ Connectors: email (SMTP), Slack (Web API), SMS (Twilio-shaped), WhatsApp (Cloud 
 | Tool | Status | Used by |
 |---|---|---|
 | `WebSearchTool` | Live Tavily | Research agent |
-| `WebsiteReaderTool` | Live fetch + readable text | Not wired yet; onboarding company-from-link |
+| `WebsiteReaderTool` | Live fetch + readable text | Seller onboarding (`OnboardingAgent`) |
 | `CompanyDataTool` | `NotImplementedError` | Future BDL / provider |
 | `EvidenceEvaluator` | Keyword + domain heuristics | Research agent |
 | `MockSearchTool` | Dev stub | Early tests only |
@@ -89,10 +110,10 @@ Connectors: email (SMTP), Slack (Web API), SMS (Twilio-shaped), WhatsApp (Cloud 
 
 ## What is not in the architecture yet
 
-- HTTP/API or UI
+- HTTP/API or browser UI
 - Signup / session
-- CSV prospect import
 - Persistence (DB / CRM)
 - Contact discovery from Phase 1
+- EXCON fed from pipeline runs (still mock contacts)
 - Multi-touch sequences
 - Rate limits
