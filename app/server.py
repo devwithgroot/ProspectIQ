@@ -23,6 +23,7 @@ from app.ui_logic import (
     upload_too_large,
 )
 from config.catalog import catalog_payload
+from data.loader import load_mock_bundle
 
 
 app = FastAPI(title="ProspectIQ API")
@@ -66,6 +67,24 @@ def catalog() -> dict:
 @app.get("/api/settings")
 def settings() -> dict[str, bool]:
     return {"otp_required": otp_required()}
+
+
+@app.get("/api/mock/bundle")
+def mock_bundle() -> dict:
+    bundle = load_mock_bundle()
+    return {
+        "user": bundle.user.model_dump(mode="json"),
+        "products": [item.model_dump(mode="json") for item in bundle.products],
+        "companies": [item.model_dump(mode="json") for item in bundle.companies],
+        "company_profiles": [
+            item.model_dump(mode="json") for item in bundle.company_profiles
+        ],
+        "contacts": [item.model_dump(mode="json") for item in bundle.contacts],
+        "contact_profiles": [
+            item.model_dump(mode="json") for item in bundle.contact_profiles
+        ],
+        "do_not_contact": [item.model_dump(mode="json") for item in bundle.dnc],
+    }
 
 
 @app.post("/api/verify-email")

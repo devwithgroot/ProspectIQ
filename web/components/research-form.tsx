@@ -1,19 +1,19 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react"
-import { CheckIcon, FileSpreadsheetIcon, UploadIcon } from "lucide-react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { CheckIcon, FileSpreadsheetIcon, UploadIcon } from "lucide-react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Combobox } from "@/components/ui/combobox"
+} from "@/components/ui/card";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -32,31 +32,32 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
+} from "@/components/ui/table";
+import { API_URL } from "@/lib/api";
 import {
   bundledCatalog,
   fetchCatalog,
   titlesForIndustry,
   type Catalog,
-} from "@/lib/catalog"
+} from "@/lib/catalog";
 import {
   activityFromJob,
   estimateResearch,
   formatEstimateRange,
   researchActivity,
   waitingHint,
-} from "@/lib/research-estimate"
+} from "@/lib/research-estimate";
 import {
   cancelResearchJob,
   fetchResearchJob,
   skipResearchCompany,
   sleep,
-} from "@/lib/research-job"
+} from "@/lib/research-job";
 import {
   useResearchHydrated,
   useResearchStore,
   validateCurrentYouDetails,
-} from "@/lib/research-store"
+} from "@/lib/research-store";
 import type {
   Company,
   CompanyProfile,
@@ -67,8 +68,8 @@ import type {
   ResearchResult,
   StagedProspect,
   StagingPreview,
-} from "@/lib/types"
-import { cn } from "@/lib/utils"
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
 import {
   filledStagedCompanies,
   formatIndiaPhone,
@@ -81,30 +82,28 @@ import {
   validateUploadFile,
   validateWorkEmail,
   websiteFromEmail,
-} from "@/lib/validators"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+} from "@/lib/validators";
 
 function firstFieldSelector(stepIndex: number): string {
-  if (stepIndex === 0) return "#full_name"
-  if (stepIndex === 1) return "#industry"
-  if (stepIndex === 2) return "#website"
-  return '[data-sheet-cell="0-0"]'
+  if (stepIndex === 0) return "#full_name";
+  if (stepIndex === 1) return "#industry";
+  if (stepIndex === 2) return "#website";
+  return '[data-sheet-cell="0-0"]';
 }
 
 function onEnterKey(
   event: KeyboardEvent<HTMLElement>,
-  next: string | (() => void)
+  next: string | (() => void),
 ) {
   if (event.key !== "Enter" || event.nativeEvent.isComposing) {
-    return
+    return;
   }
-  event.preventDefault()
+  event.preventDefault();
   if (typeof next === "string") {
-    document.getElementById(next)?.focus()
-    return
+    document.getElementById(next)?.focus();
+    return;
   }
-  next()
+  next();
 }
 
 const STEPS = [
@@ -134,10 +133,10 @@ const STEPS = [
     heading: "Companies you want researched",
     description: "Type the list, or upload a spreadsheet.",
   },
-] as const
+] as const;
 
 export function ResearchForm() {
-  const store = useResearchStore()
+  const store = useResearchStore();
   const {
     step,
     notice,
@@ -178,98 +177,98 @@ export function ResearchForm() {
     setPreviewBusy,
     setProspectsMode,
     startOver,
-  } = store
-  const hydrated = useResearchHydrated()
-  const [youShowErrors, setYouShowErrors] = useState(false)
-  const [focusStep, setFocusStep] = useState<number | null>(null)
+  } = store;
+  const hydrated = useResearchHydrated();
+  const [youShowErrors, setYouShowErrors] = useState(false);
+  const [focusStep, setFocusStep] = useState<number | null>(null);
 
   useEffect(() => {
     fetchCatalog()
       .then(setCatalog)
-      .catch(() => setCatalog(bundledCatalog))
-  }, [setCatalog])
+      .catch(() => setCatalog(bundledCatalog));
+  }, [setCatalog]);
 
   useEffect(() => {
     if (result) {
       document.getElementById("research-results")?.scrollIntoView({
         behavior: "smooth",
         block: "start",
-      })
+      });
     }
-  }, [result])
+  }, [result]);
 
   useEffect(() => {
     if (!hydrated) {
-      return
+      return;
     }
     if (step === STEPS.length - 1 && !staging) {
-      setStaging(emptySheet())
+      setStaging(emptySheet());
     }
-  }, [hydrated, step, staging, setStaging])
+  }, [hydrated, step, staging, setStaging]);
 
   useEffect(() => {
     if (!hydrated || !jobId) {
-      return
+      return;
     }
 
-    let cancelled = false
-    setPending(true)
+    let cancelled = false;
+    setPending(true);
 
     async function watchJob(id: string) {
-      let failures = 0
+      let failures = 0;
       while (!cancelled) {
         try {
-          const next = await fetchResearchJob(id)
+          const next = await fetchResearchJob(id);
           if (cancelled) {
-            return
+            return;
           }
-          failures = 0
-          setJob(next)
+          failures = 0;
+          setJob(next);
           if (next.status === "done" && next.result) {
-            setResult(next.result)
-            setJobId(null)
-            setJob(null)
-            setPending(false)
-            return
+            setResult(next.result);
+            setJobId(null);
+            setJob(null);
+            setPending(false);
+            return;
           }
           if (next.status === "cancelled") {
-            const finished = next.result?.companies ?? []
+            const finished = next.result?.companies ?? [];
             if (finished.length && next.result) {
-              setResult(next.result)
+              setResult(next.result);
             } else {
               setNotice({
                 title: "Research stopped",
                 message:
                   "You can start again from your list whenever you’re ready.",
-              })
+              });
             }
-            setJobId(null)
-            setJob(null)
-            setPending(false)
-            return
+            setJobId(null);
+            setJob(null);
+            setPending(false);
+            return;
           }
           if (next.status === "error" || next.status === "lost") {
-            showError(next.error || "We couldn’t finish research.")
-            setJobId(null)
-            setJob(null)
-            setPending(false)
-            return
+            showError(next.error || "We couldn’t finish research.");
+            setJobId(null);
+            setJob(null);
+            setPending(false);
+            return;
           }
         } catch (err) {
-          failures += 1
+          failures += 1;
           if (failures >= 8) {
-            showError(err)
-            return
+            showError(err);
+            return;
           }
         }
-        await sleep(800)
+        await sleep(800);
       }
     }
 
-    void watchJob(jobId)
+    void watchJob(jobId);
     return () => {
-      cancelled = true
-    }
+      cancelled = true;
+    };
   }, [
     hydrated,
     jobId,
@@ -279,217 +278,220 @@ export function ResearchForm() {
     setNotice,
     setResult,
     showError,
-  ])
+  ]);
 
   useEffect(() => {
     if (focusStep === null || focusStep !== step) {
-      return
+      return;
     }
     if (step === STEPS.length - 1 && prospectsMode === "grid" && !staging) {
-      return
+      return;
     }
 
-    let cancelled = false
+    let cancelled = false;
     const focusFirstField = () => {
       if (cancelled) {
-        return false
+        return false;
       }
-      const node = document.querySelector<HTMLElement>(firstFieldSelector(step))
+      const node = document.querySelector<HTMLElement>(
+        firstFieldSelector(step),
+      );
       if (!node) {
-        return false
+        return false;
       }
-      node.focus()
+      node.focus();
       if (
         step !== STEPS.length - 1 &&
-        (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement)
+        (node instanceof HTMLInputElement ||
+          node instanceof HTMLTextAreaElement)
       ) {
-        node.select()
+        node.select();
       }
-      return document.activeElement === node
-    }
+      return document.activeElement === node;
+    };
 
     const frame = window.requestAnimationFrame(() => {
       if (focusFirstField()) {
-        setFocusStep(null)
+        setFocusStep(null);
       }
-    })
+    });
     const retry = window.setTimeout(() => {
       if (focusFirstField()) {
-        setFocusStep(null)
+        setFocusStep(null);
       }
-    }, 50)
+    }, 50);
 
     return () => {
-      cancelled = true
-      window.cancelAnimationFrame(frame)
-      window.clearTimeout(retry)
-    }
-  }, [focusStep, step, staging, prospectsMode])
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(retry);
+    };
+  }, [focusStep, step, staging, prospectsMode]);
 
-  const titleOptions = titlesForIndustry(catalog, industry)
-  const current = STEPS[step]
-  const suggestedWebsite = websiteFromEmail(email)
+  const titleOptions = titlesForIndustry(catalog, industry);
+  const current = STEPS[step];
+  const suggestedWebsite = websiteFromEmail(email);
 
   function selectStep(index: number) {
-    if (index === step) return
+    if (index === step) return;
     if (index < step) {
-      clearMessages()
-      setStep(index)
-      return
+      clearMessages();
+      setStep(index);
+      return;
     }
     for (let i = step; i < index; i += 1) {
-      if (i === STEPS.length - 1) continue
-      const problem = validateStep(i)
+      if (i === STEPS.length - 1) continue;
+      const problem = validateStep(i);
       if (problem) {
-        showError(problem)
-        setStep(i)
-        return
+        showError(problem);
+        setStep(i);
+        return;
       }
     }
-    clearMessages()
-    prepareStep(index)
-    setStep(index)
-    setFocusStep(index)
+    clearMessages();
+    prepareStep(index);
+    setStep(index);
+    setFocusStep(index);
   }
 
   function prepareStep(index: number) {
     if (index === STEPS.length - 1 && !staging) {
-      setStaging(emptySheet())
+      setStaging(emptySheet());
     }
   }
 
   async function goNext() {
     if (step === 0) {
-      const ready = await finishYouStep()
+      const ready = await finishYouStep();
       if (!ready) {
-        return
+        return;
       }
     } else {
-      const problem = validateStep(step)
+      const problem = validateStep(step);
       if (problem) {
-        showError(problem)
-        return
+        showError(problem);
+        return;
       }
     }
-    clearMessages()
-    const next = Math.min(step + 1, STEPS.length - 1)
-    prepareStep(next)
-    setStep(next)
-    setFocusStep(next)
+    clearMessages();
+    const next = Math.min(step + 1, STEPS.length - 1);
+    prepareStep(next);
+    setStep(next);
+    setFocusStep(next);
   }
 
   async function finishYouStep(): Promise<boolean> {
-    const problem = validateCurrentYouDetails()
+    const problem = validateCurrentYouDetails();
     if (problem) {
-      setYouShowErrors(true)
-      return false
+      setYouShowErrors(true);
+      return false;
     }
-    setYouShowErrors(false)
-    return true
+    setYouShowErrors(false);
+    return true;
   }
 
   function goBack() {
-    clearMessages()
-    setStep((currentStep) => Math.max(currentStep - 1, 0))
+    clearMessages();
+    setStep((currentStep) => Math.max(currentStep - 1, 0));
   }
 
   async function previewFile(next: File | null) {
-    setFile(next)
-    setStaging(null)
-    setResult(null)
+    setFile(next);
+    setStaging(null);
+    setResult(null);
     if (!next) {
-      return
+      return;
     }
-    const fileProblem = validateUploadFile(next)
+    const fileProblem = validateUploadFile(next);
     if (fileProblem) {
-      showError(fileProblem)
-      return
+      showError(fileProblem);
+      return;
     }
 
-    setPreviewBusy(true)
-    clearMessages()
-    const data = new FormData()
-    data.set("prospects", next)
+    setPreviewBusy(true);
+    clearMessages();
+    const data = new FormData();
+    data.set("prospects", next);
     try {
       const response = await fetch(`${API_URL}/api/preview`, {
         method: "POST",
         body: data,
-      })
-      const payload = await response.json().catch(() => null)
+      });
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw payload ?? new Error("We couldn’t read that file.")
+        throw payload ?? new Error("We couldn’t read that file.");
       }
-      setStaging(withRowIds(payload as StagingPreview))
-      setProspectsMode("grid")
+      setStaging(withRowIds(payload as StagingPreview));
+      setProspectsMode("grid");
     } catch (err) {
-      showError(err)
+      showError(err);
     } finally {
-      setPreviewBusy(false)
+      setPreviewBusy(false);
     }
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
     if (step !== STEPS.length - 1) {
-      return
+      return;
     }
-    const companies = filledStagedCompanies(staging)
+    const companies = filledStagedCompanies(staging);
     if (companies.length === 0) {
-      return
+      return;
     }
 
-    clearMessages()
-    setResult(null)
-    setJob(null)
-    setPending(true)
+    clearMessages();
+    setResult(null);
+    setJob(null);
+    setPending(true);
 
-    const data = new FormData()
-    data.set("full_name", fullName.trim())
-    data.set("phone", formatIndiaPhone(phone))
-    data.set("email", email.trim())
-    data.set("outreach_email", email.trim())
-    data.set("industry", industry)
-    data.set("title", title)
-    data.set("website", website.trim())
+    const data = new FormData();
+    data.set("full_name", fullName.trim());
+    data.set("phone", formatIndiaPhone(phone));
+    data.set("email", email.trim());
+    data.set("outreach_email", email.trim());
+    data.set("industry", industry);
+    data.set("title", title);
+    data.set("website", website.trim());
     data.set(
       "prospects",
       fileFromStaging({
         file_name: staging?.file_name || "prospects.csv",
         count: companies.length,
         companies,
-      })
-    )
+      }),
+    );
 
     try {
       const response = await fetch(`${API_URL}/api/research`, {
         method: "POST",
         body: data,
-      })
-      const payload = await response.json().catch(() => null)
+      });
+      const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw payload ?? new Error("We couldn’t start research.")
+        throw payload ?? new Error("We couldn’t start research.");
       }
-      const started = payload as { job_id?: string }
+      const started = payload as { job_id?: string };
       if (!started.job_id) {
-        throw new Error("We couldn’t start research.")
+        throw new Error("We couldn’t start research.");
       }
-      setJobId(started.job_id)
+      setJobId(started.job_id);
     } catch (err) {
-      setPending(false)
-      showError(err)
+      setPending(false);
+      showError(err);
     }
   }
 
-  const filledCompanies = filledStagedCompanies(staging)
+  const filledCompanies = filledStagedCompanies(staging);
   const heading =
     current.id === "prospects" && filledCompanies.length
       ? "Review this list"
-      : current.heading
-  const estimate = estimateResearch(filledCompanies.length || 1)
+      : current.heading;
+  const estimate = estimateResearch(filledCompanies.length || 1);
   const description =
     current.id === "prospects" && filledCompanies.length
       ? `${filledCompanies.length} compan${filledCompanies.length === 1 ? "y" : "ies"}${staging?.file_name && staging.file_name !== "prospects.csv" ? ` from ${staging.file_name}` : ""}. Research usually takes ${formatEstimateRange(estimate)}, including a little extra time.`
-      : current.description
+      : current.description;
 
   if (!hydrated) {
     return (
@@ -504,7 +506,7 @@ export function ResearchForm() {
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -532,8 +534,7 @@ export function ResearchForm() {
           <CardContent className="pt-6">
             <ResearchingState
               companies={
-                job?.companies ??
-                filledCompanies.map((row) => row.company_name)
+                job?.companies ?? filledCompanies.map((row) => row.company_name)
               }
               job={job}
             />
@@ -541,120 +542,122 @@ export function ResearchForm() {
         </Card>
       ) : (
         <>
-      <StepNav step={step} onSelect={selectStep} />
+          <StepNav step={step} onSelect={selectStep} />
 
-      <Card>
-        <CardHeader>
-          <p className="text-xs font-medium text-muted-foreground">
-            Step {step + 1} of {STEPS.length}
-          </p>
-          <CardTitle className="text-lg sm:text-xl">{heading}</CardTitle>
-          <CardDescription className="text-sm leading-6">
-            {description}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <form className="space-y-6" onSubmit={onSubmit}>
-              {current.id === "you" ? (
-                <YouSection
-                  fullName={fullName}
-                  phone={phone}
-                  email={email}
-                  showErrors={youShowErrors}
-                  onFullName={setFullName}
-                  onPhone={setPhone}
-                  onEmail={setEmail}
-                  onContinue={() => void goNext()}
-                />
-              ) : null}
-              {current.id === "role" ? (
-                <RoleSection
-                  catalog={catalog}
-                  industry={industry}
-                  title={title}
-                  titleOptions={titleOptions}
-                  onIndustry={setIndustry}
-                  onTitle={setTitle}
-                  onContinue={() => void goNext()}
-                />
-              ) : null}
-              {current.id === "company" ? (
-                <CompanySection
-                  website={website}
-                  suggested={suggestedWebsite}
-                  onWebsite={setWebsite}
-                  onUseSuggested={applySuggestedWebsite}
-                  onContinue={() => void goNext()}
-                />
-              ) : null}
-              {current.id === "prospects" ? (
-                <ProspectsSection
-                  file={file}
-                  staging={staging}
-                  previewBusy={previewBusy}
-                  summary={{
-                    fullName,
-                    email,
-                    industry,
-                    title,
-                    website,
-                  }}
-                  mode={prospectsMode}
-                  onMode={setProspectsMode}
-                  onFile={(next) => void previewFile(next)}
-                  onEditDetails={() => {
-                    clearMessages()
-                    setStep(0)
-                  }}
-                  onStagingChange={setStaging}
-                />
-              ) : null}
+          <Card>
+            <CardHeader>
+              <p className="text-xs font-medium text-muted-foreground">
+                Step {step + 1} of {STEPS.length}
+              </p>
+              <CardTitle className="text-lg sm:text-xl">{heading}</CardTitle>
+              <CardDescription className="text-sm leading-6">
+                {description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-6" onSubmit={onSubmit}>
+                {current.id === "you" ? (
+                  <YouSection
+                    fullName={fullName}
+                    phone={phone}
+                    email={email}
+                    showErrors={youShowErrors}
+                    onFullName={setFullName}
+                    onPhone={setPhone}
+                    onEmail={setEmail}
+                    onContinue={() => void goNext()}
+                  />
+                ) : null}
+                {current.id === "role" ? (
+                  <RoleSection
+                    catalog={catalog}
+                    industry={industry}
+                    title={title}
+                    titleOptions={titleOptions}
+                    onIndustry={setIndustry}
+                    onTitle={setTitle}
+                    onContinue={() => void goNext()}
+                  />
+                ) : null}
+                {current.id === "company" ? (
+                  <CompanySection
+                    website={website}
+                    suggested={suggestedWebsite}
+                    onWebsite={setWebsite}
+                    onUseSuggested={applySuggestedWebsite}
+                    onContinue={() => void goNext()}
+                  />
+                ) : null}
+                {current.id === "prospects" ? (
+                  <ProspectsSection
+                    file={file}
+                    staging={staging}
+                    previewBusy={previewBusy}
+                    summary={{
+                      fullName,
+                      email,
+                      industry,
+                      title,
+                      website,
+                    }}
+                    mode={prospectsMode}
+                    onMode={setProspectsMode}
+                    onFile={(next) => void previewFile(next)}
+                    onEditDetails={() => {
+                      clearMessages();
+                      setStep(0);
+                    }}
+                    onStagingChange={setStaging}
+                  />
+                ) : null}
 
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                {step > 0 ? (
-                  <Button type="button" variant="outline" onClick={goBack}>
-                    Back
-                  </Button>
-                ) : (
-                  <span />
-                )}
-                {step < STEPS.length - 1 ? (
-                  <Button type="button" onClick={() => void goNext()}>
-                    Continue
-                  </Button>
-                ) : filledCompanies.length > 0 ? (
-                  <div className="flex flex-col items-end gap-1">
-                    <Button type="submit" size="lg">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {step > 0 ? (
+                    <Button type="button" variant="outline" onClick={goBack}>
+                      Back
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                  {step < STEPS.length - 1 ? (
+                    <Button type="button" onClick={() => void goNext()}>
+                      Continue
+                    </Button>
+                  ) : filledCompanies.length > 0 ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <Button type="submit" size="lg">
+                        Start research
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Usually {formatEstimateRange(estimate)}
+                      </p>
+                    </div>
+                  ) : prospectsMode === "upload" ? (
+                    <Button
+                      type="button"
+                      size="lg"
+                      disabled={previewBusy}
+                      onClick={() => {
+                        if (!file) {
+                          showError(
+                            "Please upload a spreadsheet of companies.",
+                          );
+                          return;
+                        }
+                        void previewFile(file);
+                      }}
+                    >
+                      {previewBusy ? "Reading file…" : "Review list"}
+                    </Button>
+                  ) : (
+                    <Button type="button" size="lg" disabled>
                       Start research
                     </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Usually {formatEstimateRange(estimate)}
-                    </p>
-                  </div>
-                ) : prospectsMode === "upload" ? (
-                  <Button
-                    type="button"
-                    size="lg"
-                    disabled={previewBusy}
-                    onClick={() => {
-                      if (!file) {
-                        showError("Please upload a spreadsheet of companies.")
-                        return
-                      }
-                      void previewFile(file)
-                    }}
-                  >
-                    {previewBusy ? "Reading file…" : "Review list"}
-                  </Button>
-                ) : (
-                  <Button type="button" size="lg" disabled>
-                    Start research
-                  </Button>
-                )}
-              </div>
-            </form>
-        </CardContent>
-      </Card>
+                  )}
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </>
       )}
 
@@ -662,7 +665,7 @@ export function ResearchForm() {
         open={notice !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setNotice(null)
+            setNotice(null);
           }
         }}
       >
@@ -679,7 +682,7 @@ export function ResearchForm() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
 
 function withRowIds(preview: StagingPreview): StagingPreview {
@@ -690,19 +693,19 @@ function withRowIds(preview: StagingPreview): StagingPreview {
       ...row,
       id: row.id || `${preview.file_name}-${index}-${row.company_name}`,
     })),
-  }
+  };
 }
 
-let sheetRow = 0
+let sheetRow = 0;
 
 function blankStagedCompany(): StagedProspect {
-  sheetRow += 1
+  sheetRow += 1;
   return {
     id: `row-${sheetRow}`,
     company_name: "",
     website: null,
     notes: null,
-  }
+  };
 }
 
 function emptySheet(fileName = "prospects.csv"): StagingPreview {
@@ -710,68 +713,64 @@ function emptySheet(fileName = "prospects.csv"): StagingPreview {
     file_name: fileName,
     count: 0,
     companies: [blankStagedCompany()],
-  }
+  };
 }
 
 function withSheetCount(staging: StagingPreview): StagingPreview {
   return {
     ...staging,
     count: staging.companies.filter((row) => row.company_name.trim()).length,
-  }
+  };
 }
 
 function addSheetRow(staging: StagingPreview): StagingPreview {
   return withSheetCount({
     ...staging,
     companies: [...staging.companies, blankStagedCompany()],
-  })
+  });
 }
 
 function upsertStagedCompany(
   staging: StagingPreview,
-  row: StagedProspect
+  row: StagedProspect,
 ): StagingPreview {
   const next = {
     ...row,
     company_name: row.company_name.trim(),
     website: row.website?.trim() || null,
     notes: row.notes?.trim() || null,
-  }
+  };
   const companies = staging.companies.some((item) => item.id === next.id)
     ? staging.companies.map((item) => (item.id === next.id ? next : item))
-    : [...staging.companies, next]
-  return { ...staging, companies, count: companies.length }
+    : [...staging.companies, next];
+  return { ...staging, companies, count: companies.length };
 }
 
 function removeStagedCompany(
   staging: StagingPreview,
-  id: string
+  id: string,
 ): StagingPreview {
-  const companies = staging.companies.filter((item) => item.id !== id)
-  return { ...staging, companies, count: companies.length }
+  const companies = staging.companies.filter((item) => item.id !== id);
+  return { ...staging, companies, count: companies.length };
 }
 
 function isBlankRow(row: StagedProspect): boolean {
-  return (
-    !row.company_name.trim() &&
-    !row.website?.trim() &&
-    !row.notes?.trim()
-  )
+  return !row.company_name.trim() && !row.website?.trim() && !row.notes?.trim();
 }
 
 function removeBlankRows(staging: StagingPreview): StagingPreview {
-  const companies = staging.companies.filter((row) => !isBlankRow(row))
+  const companies = staging.companies.filter((row) => !isBlankRow(row));
   if (companies.length === 0) {
-    return emptySheet(staging.file_name)
+    return emptySheet(staging.file_name);
   }
-  return withSheetCount({ ...staging, companies })
+  return withSheetCount({ ...staging, companies });
 }
 
 function csvCell(value: string): string {
   if (/[",\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
+    return `"${value.replace(/"/g, '""')}"`;
   }
-  return value
+  return value;
 }
 
 function fileFromStaging(staging: StagingPreview): File {
@@ -782,12 +781,16 @@ function fileFromStaging(staging: StagingPreview): File {
         csvCell(row.company_name),
         csvCell(row.website ?? ""),
         csvCell(row.notes ?? ""),
-      ].join(",")
+      ].join(","),
     ),
-  ]
-  return new File([`${lines.join("\n")}\n`], staging.file_name || "prospects.csv", {
-    type: "text/csv",
-  })
+  ];
+  return new File(
+    [`${lines.join("\n")}\n`],
+    staging.file_name || "prospects.csv",
+    {
+      type: "text/csv",
+    },
+  );
 }
 
 function CompanyEditDialog({
@@ -795,18 +798,18 @@ function CompanyEditDialog({
   onClose,
   onSave,
 }: {
-  row: StagedProspect | null
-  onClose: () => void
-  onSave: (row: StagedProspect) => void
+  row: StagedProspect | null;
+  onClose: () => void;
+  onSave: (row: StagedProspect) => void;
 }) {
-  const [draft, setDraft] = useState<StagedProspect | null>(row)
+  const [draft, setDraft] = useState<StagedProspect | null>(row);
 
   useEffect(() => {
-    setDraft(row)
-  }, [row])
+    setDraft(row);
+  }, [row]);
 
   if (!draft) {
-    return null
+    return null;
   }
 
   return (
@@ -859,7 +862,7 @@ function CompanyEditDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function BriefingEditDialog({
@@ -867,18 +870,18 @@ function BriefingEditDialog({
   onClose,
   onSave,
 }: {
-  report: BriefingDraft | null
-  onClose: () => void
-  onSave: (report: BriefingDraft) => void
+  report: BriefingDraft | null;
+  onClose: () => void;
+  onSave: (report: BriefingDraft) => void;
 }) {
-  const [draft, setDraft] = useState<BriefingDraft | null>(report)
+  const [draft, setDraft] = useState<BriefingDraft | null>(report);
 
   useEffect(() => {
-    setDraft(report)
-  }, [report])
+    setDraft(report);
+  }, [report]);
 
   if (!draft) {
-    return null
+    return null;
   }
 
   return (
@@ -895,9 +898,7 @@ function BriefingEditDialog({
           name="edit_briefing_name"
           label="Company name"
           value={draft.name}
-          onChange={(event) =>
-            setDraft({ ...draft, name: event.target.value })
-          }
+          onChange={(event) => setDraft({ ...draft, name: event.target.value })}
         />
         <div className="space-y-2">
           <Label htmlFor="edit_summary">Summary</Label>
@@ -957,24 +958,24 @@ function BriefingEditDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function linesFromText(value: string): string[] {
   return value
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean)
+    .filter(Boolean);
 }
 
 function StepNav({
   step,
   onSelect,
 }: {
-  step: number
-  onSelect: (index: number) => void
+  step: number;
+  onSelect: (index: number) => void;
 }) {
-  const progress = ((step + 1) / STEPS.length) * 100
+  const progress = ((step + 1) / STEPS.length) * 100;
   return (
     <div className="space-y-3">
       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -985,8 +986,8 @@ function StepNav({
       </div>
       <ol className="grid grid-cols-4 gap-2">
         {STEPS.map((item, index) => {
-          const active = index === step
-          const done = index < step
+          const active = index === step;
+          const done = index < step;
           return (
             <li key={item.id}>
               <button
@@ -994,7 +995,7 @@ function StepNav({
                 onClick={() => onSelect(index)}
                 className={cn(
                   "flex w-full flex-col items-start gap-1.5 rounded-xl px-1 py-1 text-left sm:flex-row sm:items-center sm:gap-2 sm:px-2 sm:py-2",
-                  active ? "text-foreground" : "text-muted-foreground"
+                  active ? "text-foreground" : "text-muted-foreground",
                 )}
               >
                 <span
@@ -1002,7 +1003,7 @@ function StepNav({
                     "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-medium",
                     done || active
                       ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
+                      : "bg-muted text-muted-foreground",
                   )}
                 >
                   {done ? <CheckIcon className="size-3.5" /> : index + 1}
@@ -1012,11 +1013,11 @@ function StepNav({
                 </span>
               </button>
             </li>
-          )
+          );
         })}
       </ol>
     </div>
-  )
+  );
 }
 
 function YouSection({
@@ -1029,31 +1030,31 @@ function YouSection({
   onEmail,
   onContinue,
 }: {
-  fullName: string
-  phone: string
-  email: string
-  showErrors: boolean
-  onFullName: (value: string) => void
-  onPhone: (value: string) => void
-  onEmail: (value: string) => void
-  onContinue: () => void
+  fullName: string;
+  phone: string;
+  email: string;
+  showErrors: boolean;
+  onFullName: (value: string) => void;
+  onPhone: (value: string) => void;
+  onEmail: (value: string) => void;
+  onContinue: () => void;
 }) {
   const [touched, setTouched] = useState({
     fullName: false,
     phone: false,
     email: false,
-  })
+  });
 
   const nameError =
-    showErrors || touched.fullName ? validateFullName(fullName) : null
+    showErrors || touched.fullName ? validateFullName(fullName) : null;
   const phoneError =
     showErrors || touched.phone || localPhoneDigits(phone).length === 10
       ? validatePhone(phone)
-      : null
+      : null;
   const emailError =
     showErrors || touched.email || isEmail(email)
       ? validateWorkEmail(email)
-      : null
+      : null;
 
   return (
     <div className="space-y-4">
@@ -1067,7 +1068,9 @@ function YouSection({
           value={fullName}
           error={nameError}
           onChange={(event) => onFullName(event.target.value)}
-          onBlur={() => setTouched((current) => ({ ...current, fullName: true }))}
+          onBlur={() =>
+            setTouched((current) => ({ ...current, fullName: true }))
+          }
           onKeyDown={(event) => onEnterKey(event, "phone")}
           required
         />
@@ -1094,7 +1097,7 @@ function YouSection({
         required
       />
     </div>
-  )
+  );
 }
 
 function RoleSection({
@@ -1106,13 +1109,13 @@ function RoleSection({
   onTitle,
   onContinue,
 }: {
-  catalog: Catalog
-  industry: string
-  title: string
-  titleOptions: { id: string; label: string; group: string }[]
-  onIndustry: (value: string) => void
-  onTitle: (value: string) => void
-  onContinue: () => void
+  catalog: Catalog;
+  industry: string;
+  title: string;
+  titleOptions: { id: string; label: string; group: string }[];
+  onIndustry: (value: string) => void;
+  onTitle: (value: string) => void;
+  onContinue: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -1129,8 +1132,8 @@ function RoleSection({
         onChange={onIndustry}
         onAdvance={() => {
           window.requestAnimationFrame(() => {
-            document.getElementById("title")?.focus()
-          })
+            document.getElementById("title")?.focus();
+          });
         }}
       />
       <Combobox
@@ -1151,7 +1154,7 @@ function RoleSection({
         onAdvance={onContinue}
       />
     </div>
-  )
+  );
 }
 
 function CompanySection({
@@ -1161,11 +1164,11 @@ function CompanySection({
   onUseSuggested,
   onContinue,
 }: {
-  website: string
-  suggested: string | null
-  onWebsite: (value: string) => void
-  onUseSuggested: () => void
-  onContinue: () => void
+  website: string;
+  suggested: string | null;
+  onWebsite: (value: string) => void;
+  onUseSuggested: () => void;
+  onContinue: () => void;
 }) {
   return (
     <div className="space-y-3">
@@ -1190,32 +1193,30 @@ function CompanySection({
         </button>
       ) : null}
     </div>
-  )
+  );
 }
 
 function sheetCell(row: StagedProspect, col: number): string {
-  if (col === 0) return row.company_name
-  if (col === 1) return row.website ?? ""
-  return row.notes ?? ""
+  if (col === 0) return row.company_name;
+  if (col === 1) return row.website ?? "";
+  return row.notes ?? "";
 }
 
 function setSheetCell(
   row: StagedProspect,
   col: number,
-  value: string
+  value: string,
 ): StagedProspect {
-  if (col === 0) return { ...row, company_name: value }
-  if (col === 1) return { ...row, website: value }
-  return { ...row, notes: value }
+  if (col === 0) return { ...row, company_name: value };
+  if (col === 1) return { ...row, website: value };
+  return { ...row, notes: value };
 }
 
 function isSheetHeader(cells: string[]): boolean {
-  const first = cells[0]?.trim().toLowerCase()
+  const first = cells[0]?.trim().toLowerCase();
   return (
-    first === "company_name" ||
-    first === "company" ||
-    first === "company name"
-  )
+    first === "company_name" || first === "company" || first === "company name"
+  );
 }
 
 function parseSheetPaste(text: string): string[][] {
@@ -1223,43 +1224,43 @@ function parseSheetPaste(text: string): string[][] {
     .replace(/\r/g, "")
     .split("\n")
     .filter((line) => line.length > 0)
-    .map((line) => line.split("\t"))
+    .map((line) => line.split("\t"));
   if (rows[0] && isSheetHeader(rows[0])) {
-    return rows.slice(1)
+    return rows.slice(1);
   }
-  return rows
+  return rows;
 }
 
 function applySheetPaste(
   staging: StagingPreview,
   startRow: number,
   startCol: number,
-  pasted: string[][]
+  pasted: string[][],
 ): StagingPreview {
-  const companies = staging.companies.map((row) => ({ ...row }))
+  const companies = staging.companies.map((row) => ({ ...row }));
   pasted.forEach((cells, rowOffset) => {
-    const index = startRow + rowOffset
+    const index = startRow + rowOffset;
     while (companies.length <= index) {
-      companies.push(blankStagedCompany())
+      companies.push(blankStagedCompany());
     }
     cells.forEach((cell, colOffset) => {
-      const col = startCol + colOffset
+      const col = startCol + colOffset;
       if (col > 2) {
-        return
+        return;
       }
-      companies[index] = setSheetCell(companies[index], col, cell)
-    })
-  })
+      companies[index] = setSheetCell(companies[index], col, cell);
+    });
+  });
   return withSheetCount({
     ...staging,
     companies,
-  })
+  });
 }
 
 function focusSheetCell(row: number, col: number) {
   document
     .querySelector<HTMLInputElement>(`[data-sheet-cell="${row}-${col}"]`)
-    ?.focus()
+    ?.focus();
 }
 
 function SellerSummary({
@@ -1267,13 +1268,13 @@ function SellerSummary({
   onEditDetails,
 }: {
   summary: {
-    fullName: string
-    email: string
-    industry: string
-    title: string
-    website: string
-  }
-  onEditDetails: () => void
+    fullName: string;
+    email: string;
+    industry: string;
+    title: string;
+    website: string;
+  };
+  onEditDetails: () => void;
 }) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3 text-sm leading-6">
@@ -1290,7 +1291,7 @@ function SellerSummary({
         Edit
       </Button>
     </div>
-  )
+  );
 }
 
 function ProspectsSection({
@@ -1304,36 +1305,36 @@ function ProspectsSection({
   onEditDetails,
   onStagingChange,
 }: {
-  file: File | null
-  staging: StagingPreview | null
-  previewBusy: boolean
-  mode: "grid" | "upload"
+  file: File | null;
+  staging: StagingPreview | null;
+  previewBusy: boolean;
+  mode: "grid" | "upload";
   summary: {
-    fullName: string
-    email: string
-    industry: string
-    title: string
-    website: string
-  }
-  onMode: (mode: "grid" | "upload") => void
-  onFile: (file: File | null) => void
-  onEditDetails: () => void
-  onStagingChange: (next: StagingPreview) => void
+    fullName: string;
+    email: string;
+    industry: string;
+    title: string;
+    website: string;
+  };
+  onMode: (mode: "grid" | "upload") => void;
+  onFile: (file: File | null) => void;
+  onEditDetails: () => void;
+  onStagingChange: (next: StagingPreview) => void;
 }) {
-  const [over, setOver] = useState(false)
-  const sheet = staging ?? emptySheet()
+  const [over, setOver] = useState(false);
+  const sheet = staging ?? emptySheet();
 
   function updateRow(index: number, col: number, value: string) {
     const companies = sheet.companies.map((row, rowIndex) =>
-      rowIndex === index ? setSheetCell(row, col, value) : row
-    )
+      rowIndex === index ? setSheetCell(row, col, value) : row,
+    );
     onStagingChange(
       withSheetCount({
         ...sheet,
         file_name: sheet.file_name || "prospects.csv",
         companies,
-      })
-    )
+      }),
+    );
   }
 
   if (mode === "upload") {
@@ -1354,20 +1355,20 @@ function ProspectsSection({
         <label
           htmlFor="prospects"
           onDragOver={(event) => {
-            event.preventDefault()
-            setOver(true)
+            event.preventDefault();
+            setOver(true);
           }}
           onDragLeave={() => setOver(false)}
           onDrop={(event) => {
-            event.preventDefault()
-            setOver(false)
-            onFile(event.dataTransfer.files?.[0] ?? null)
+            event.preventDefault();
+            setOver(false);
+            onFile(event.dataTransfer.files?.[0] ?? null);
           }}
           className={cn(
             "flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center transition-colors",
             over
               ? "border-foreground/40 bg-muted"
-              : "border-input bg-background hover:bg-muted/40"
+              : "border-input bg-background hover:bg-muted/40",
           )}
         >
           {previewBusy ? (
@@ -1405,7 +1406,7 @@ function ProspectsSection({
           onChange={(event) => onFile(event.target.files?.[0] ?? null)}
         />
       </div>
-    )
+    );
   }
 
   return (
@@ -1458,37 +1459,40 @@ function ProspectsSection({
                         updateRow(rowIndex, col, event.target.value)
                       }
                       onPaste={(event) => {
-                        const text = event.clipboardData.getData("text")
+                        const text = event.clipboardData.getData("text");
                         if (!text.includes("\t") && !text.includes("\n")) {
-                          return
+                          return;
                         }
-                        event.preventDefault()
+                        event.preventDefault();
                         onStagingChange(
                           applySheetPaste(
                             sheet,
                             rowIndex,
                             col,
-                            parseSheetPaste(text)
-                          )
-                        )
+                            parseSheetPaste(text),
+                          ),
+                        );
                       }}
                       onKeyDown={(event) => {
-                        if (event.key !== "Enter" || event.nativeEvent.isComposing) {
-                          return
+                        if (
+                          event.key !== "Enter" ||
+                          event.nativeEvent.isComposing
+                        ) {
+                          return;
                         }
-                        event.preventDefault()
+                        event.preventDefault();
                         const nextRow = event.shiftKey
                           ? rowIndex - 1
-                          : rowIndex + 1
+                          : rowIndex + 1;
                         if (nextRow < 0) {
-                          return
+                          return;
                         }
                         if (nextRow >= sheet.companies.length) {
-                          onStagingChange(addSheetRow(sheet))
+                          onStagingChange(addSheetRow(sheet));
                         }
                         window.requestAnimationFrame(() => {
-                          focusSheetCell(nextRow, col)
-                        })
+                          focusSheetCell(nextRow, col);
+                        });
                       }}
                     />
                   </TableCell>
@@ -1499,12 +1503,12 @@ function ProspectsSection({
                       type="button"
                       className="text-xs text-muted-foreground underline-offset-4 hover:underline"
                       onClick={() => {
-                        const next = removeStagedCompany(sheet, row.id)
+                        const next = removeStagedCompany(sheet, row.id);
                         onStagingChange(
                           next.companies.length
                             ? withSheetCount(next)
-                            : emptySheet(sheet.file_name)
-                        )
+                            : emptySheet(sheet.file_name),
+                        );
                       }}
                     >
                       Remove
@@ -1536,20 +1540,17 @@ function ProspectsSection({
         ) : null}
       </div>
     </div>
-  )
+  );
 }
 
 function isReasonLine(text: string): boolean {
-  return text.trim().toLowerCase().startsWith("why:")
+  return text.trim().toLowerCase().startsWith("why:");
 }
 
 function displayProgressText(text: string): string {
   return text
-    .replace(
-      /^(Choosing what to look up next on .+)\s+\(\d+\/\d+\)\s*$/,
-      "$1"
-    )
-    .replace(/^(Looking into .+)\s+\(1\/1\)\s*$/, "$1")
+    .replace(/^(Choosing what to look up next on .+)\s+\(\d+\/\d+\)\s*$/, "$1")
+    .replace(/^(Looking into .+)\s+\(1\/1\)\s*$/, "$1");
 }
 
 function ProgressLine({
@@ -1557,20 +1558,20 @@ function ProgressLine({
   active,
   hint,
 }: {
-  text: string
-  active: boolean
-  hint?: string
+  text: string;
+  active: boolean;
+  hint?: string;
 }) {
-  const shown = displayProgressText(text)
-  const reason = isReasonLine(shown)
-  const body = reason ? shown.replace(/^why:\s*/i, "") : shown
+  const shown = displayProgressText(text);
+  const reason = isReasonLine(shown);
+  const body = reason ? shown.replace(/^why:\s*/i, "") : shown;
 
   if (reason) {
     return (
       <li
         className={cn(
           "ml-6 border-l-2 border-border pl-3 text-xs leading-5 italic",
-          active ? "text-foreground" : "text-muted-foreground"
+          active ? "text-foreground" : "text-muted-foreground",
         )}
       >
         <span className="not-italic font-medium text-muted-foreground">
@@ -1583,14 +1584,14 @@ function ProgressLine({
           </span>
         ) : null}
       </li>
-    )
+    );
   }
 
   return (
     <li
       className={cn(
         "flex items-start gap-2",
-        active ? "font-medium" : "text-muted-foreground"
+        active ? "font-medium" : "text-muted-foreground",
       )}
     >
       {active ? (
@@ -1612,72 +1613,72 @@ function ProgressLine({
         ) : null}
       </span>
     </li>
-  )
+  );
 }
 
 function ResearchingState({
   companies,
   job,
 }: {
-  companies: string[]
-  job: ResearchJob | null
+  companies: string[];
+  job: ResearchJob | null;
 }) {
-  const setJob = useResearchStore((state) => state.setJob)
-  const estimate = estimateResearch(companies.length || 1)
-  const [now, setNow] = useState(Date.now())
-  const [localStart] = useState(() => Date.now())
-  const [control, setControl] = useState<"skip" | "stop" | null>(null)
-  const logRef = useRef<HTMLUListElement>(null)
-  const currentCompany = job?.current_company?.trim() || null
+  const setJob = useResearchStore((state) => state.setJob);
+  const estimate = estimateResearch(companies.length || 1);
+  const [now, setNow] = useState(Date.now());
+  const [localStart] = useState(() => Date.now());
+  const [control, setControl] = useState<"skip" | "stop" | null>(null);
+  const logRef = useRef<HTMLUListElement>(null);
+  const currentCompany = job?.current_company?.trim() || null;
   const stopping =
     Boolean(job?.cancel_requested) ||
     control === "stop" ||
-    job?.current === "Stopping research"
+    job?.current === "Stopping research";
   const skipping =
     Boolean(job?.skip_requested) ||
     control === "skip" ||
-    Boolean(currentCompany && job?.current === `Skipping ${currentCompany}`)
+    Boolean(currentCompany && job?.current === `Skipping ${currentCompany}`);
   const canControl =
-    Boolean(job?.job_id) && job?.status === "running" && !stopping
+    Boolean(job?.job_id) && job?.status === "running" && !stopping;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setNow(Date.now())
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [])
+      setNow(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const elapsed = job
     ? Math.max(
         0,
-        Math.floor((now - (Date.parse(job.started_at) || now)) / 1000)
+        Math.floor((now - (Date.parse(job.started_at) || now)) / 1000),
       )
-    : Math.floor((now - localStart) / 1000)
+    : Math.floor((now - localStart) / 1000);
   const activity = job
     ? activityFromJob(job, estimate.typicalMinutes, now)
-    : researchActivity(elapsed, companies, estimate.typicalMinutes)
-  const hint = waitingHint(activity.current, elapsed)
+    : researchActivity(elapsed, companies, estimate.typicalMinutes);
+  const hint = waitingHint(activity.current, elapsed);
 
   useEffect(() => {
-    const node = logRef.current
+    const node = logRef.current;
     if (node) {
-      node.scrollTop = node.scrollHeight
+      node.scrollTop = node.scrollHeight;
     }
-  }, [activity.done.length, activity.current, hint])
+  }, [activity.done.length, activity.current, hint]);
 
   async function sendControl(action: "skip" | "stop") {
     if (!job?.job_id || !canControl) {
-      return
+      return;
     }
-    setControl(action)
+    setControl(action);
     try {
       const next =
         action === "skip"
           ? await skipResearchCompany(job.job_id)
-          : await cancelResearchJob(job.job_id)
-      setJob(next)
+          : await cancelResearchJob(job.job_id);
+      setJob(next);
     } catch {
-      setControl(null)
+      setControl(null);
     }
   }
 
@@ -1699,10 +1700,7 @@ function ResearchingState({
           />
         </div>
       </div>
-      <ul
-        ref={logRef}
-        className="max-h-80 space-y-2 overflow-y-auto pr-1"
-      >
+      <ul ref={logRef} className="max-h-80 space-y-2 overflow-y-auto pr-1">
         {activity.done.map((step, index) => (
           <ProgressLine key={`${index}-${step}`} text={step} active={false} />
         ))}
@@ -1737,7 +1735,7 @@ function ResearchingState({
         ) : null}
       </div>
     </div>
-  )
+  );
 }
 
 function PhoneField({
@@ -1747,11 +1745,11 @@ function PhoneField({
   onBlur,
   onKeyDown,
 }: {
-  value: string
-  error: string | null
-  onChange: (value: string) => void
-  onBlur: () => void
-  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void
+  value: string;
+  error: string | null;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -1761,7 +1759,7 @@ function PhoneField({
           "flex h-10 overflow-hidden rounded-lg border border-input bg-background transition-colors",
           "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
           error &&
-            "border-destructive ring-3 ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20"
+            "border-destructive ring-3 ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20",
         )}
       >
         <span className="flex items-center px-3 text-sm text-muted-foreground select-none">
@@ -1786,7 +1784,7 @@ function PhoneField({
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
-  )
+  );
 }
 
 function Field({
@@ -1797,9 +1795,9 @@ function Field({
   error,
   ...props
 }: React.ComponentProps<typeof Input> & {
-  label: string
-  hint?: string
-  error?: string | null
+  label: string;
+  hint?: string;
+  error?: string | null;
 }) {
   return (
     <div className="space-y-2">
@@ -1811,7 +1809,7 @@ function Field({
         <p className="text-xs text-muted-foreground">{hint}</p>
       ) : null}
     </div>
-  )
+  );
 }
 
 function PeopleList({
@@ -1820,16 +1818,16 @@ function PeopleList({
   jobId,
   result,
 }: {
-  contacts: Contact[]
-  profiles: ContactProfile[]
-  jobId: string | null
-  result: ResearchResult
+  contacts: Contact[];
+  profiles: ContactProfile[];
+  jobId: string | null;
+  result: ResearchResult;
 }) {
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const [draft, setDraft] = useState<OutreachDraftResponse | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<OutreachDraftResponse | null>(null);
 
   async function writeDraft(contact: Contact) {
-    setBusyId(contact.contact_id)
+    setBusyId(contact.contact_id);
     try {
       const response = await fetch(`${API_URL}/api/outreach/draft`, {
         method: "POST",
@@ -1839,33 +1837,35 @@ function PeopleList({
           job_id: jobId,
           result,
         }),
-      })
+      });
       const body = (await response.json().catch(() => ({}))) as
         | OutreachDraftResponse
-        | { detail?: string }
+        | { detail?: string };
       if (!response.ok) {
         const detail =
           typeof body === "object" && body && "detail" in body
             ? String(body.detail)
-            : "We couldn’t write that draft."
-        useResearchStore.getState().showError(detail)
-        return
+            : "We couldn’t write that draft.";
+        useResearchStore.getState().showError(detail);
+        return;
       }
-      setDraft(body as OutreachDraftResponse)
+      setDraft(body as OutreachDraftResponse);
     } catch (error) {
-      useResearchStore.getState().showError(error)
+      useResearchStore.getState().showError(error);
     } finally {
-      setBusyId(null)
+      setBusyId(null);
     }
   }
 
   if (contacts.length === 0) {
     return (
-      <p className="text-muted-foreground">No people listed for this company yet.</p>
-    )
+      <p className="text-muted-foreground">
+        No people listed for this company yet.
+      </p>
+    );
   }
 
-  const shown = draft?.drafts[0]
+  const shown = draft?.drafts[0];
 
   return (
     <div>
@@ -1873,8 +1873,8 @@ function PeopleList({
       <ul className="mt-2 space-y-3">
         {contacts.map((contact) => {
           const profile = profiles.find(
-            (item) => item.contact_id === contact.contact_id
-          )
+            (item) => item.contact_id === contact.contact_id,
+          );
           return (
             <li key={contact.contact_id} className="text-muted-foreground">
               <div className="flex items-start justify-between gap-3">
@@ -1905,11 +1905,14 @@ function PeopleList({
                 </Button>
               </div>
             </li>
-          )
+          );
         })}
       </ul>
 
-      <Dialog open={draft !== null} onOpenChange={(open) => !open && setDraft(null)}>
+      <Dialog
+        open={draft !== null}
+        onOpenChange={(open) => !open && setDraft(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
@@ -1940,26 +1943,32 @@ function PeopleList({
             </div>
           ) : null}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDraft(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDraft(null)}
+            >
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
 
 function briefingDraftFrom(
   companies: Company[],
   profiles: CompanyProfile[],
-  index: number
+  index: number,
 ): BriefingDraft | null {
-  const profile = profiles[index]
+  const profile = profiles[index];
   if (!profile) {
-    return null
+    return null;
   }
-  const company = companies.find((item) => item.company_id === profile.company_id)
+  const company = companies.find(
+    (item) => item.company_id === profile.company_id,
+  );
   return {
     company_id: profile.company_id,
     name: company?.name ?? "",
@@ -1969,7 +1978,7 @@ function briefingDraftFrom(
     key_signals: (profile.signals ?? []).map((signal) => signal.description),
     risks: profile.risks,
     recommended_sales_approach: profile.recommended_sales_approach,
-  }
+  };
 }
 
 function Results({
@@ -1978,18 +1987,18 @@ function Results({
   onChange,
   onStartOver,
 }: {
-  result: ResearchResult
-  jobId: string | null
-  onChange: (next: ResearchResult) => void
-  onStartOver: () => void
+  result: ResearchResult;
+  jobId: string | null;
+  onChange: (next: ResearchResult) => void;
+  onStartOver: () => void;
 }) {
-  const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  const companies = result.companies ?? []
-  const profiles = result.company_profiles ?? []
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const companies = result.companies ?? [];
+  const profiles = result.company_profiles ?? [];
   const editing =
     editingIndex === null
       ? null
-      : briefingDraftFrom(companies, profiles, editingIndex)
+      : briefingDraftFrom(companies, profiles, editingIndex);
 
   return (
     <div id="research-results" className="space-y-6">
@@ -2043,11 +2052,11 @@ function Results({
         <h2 className="font-heading text-lg">Company briefings</h2>
         {profiles.map((profile, index) => {
           const company = companies.find(
-            (item) => item.company_id === profile.company_id
-          )
+            (item) => item.company_id === profile.company_id,
+          );
           const signals = (profile.signals ?? []).map(
-            (signal) => signal.description
-          )
+            (signal) => signal.description,
+          );
           return (
             <Card key={profile.profile_id || `${profile.company_id}-${index}`}>
               <CardHeader>
@@ -2092,17 +2101,17 @@ function Results({
                 </p>
                 <PeopleList
                   contacts={(result.contacts ?? []).filter(
-                    (contact) => contact.company_id === profile.company_id
+                    (contact) => contact.company_id === profile.company_id,
                   )}
                   profiles={(result.contact_profiles ?? []).filter(
-                    (item) => item.company_id === profile.company_id
+                    (item) => item.company_id === profile.company_id,
                   )}
                   jobId={jobId}
                   result={result}
                 />
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -2116,24 +2125,24 @@ function Results({
         report={editing}
         onClose={() => setEditingIndex(null)}
         onSave={(next) => {
-          const problem = validateBriefing(next)
+          const problem = validateBriefing(next);
           if (problem) {
-            useResearchStore.getState().showError(problem)
-            return
+            useResearchStore.getState().showError(problem);
+            return;
           }
           if (editingIndex === null) {
-            return
+            return;
           }
-          const nextCompanies = companies.slice()
-          const nextProfiles = profiles.slice()
+          const nextCompanies = companies.slice();
+          const nextProfiles = profiles.slice();
           const companyIndex = nextCompanies.findIndex(
-            (item) => item.company_id === next.company_id
-          )
+            (item) => item.company_id === next.company_id,
+          );
           if (companyIndex >= 0) {
             nextCompanies[companyIndex] = {
               ...nextCompanies[companyIndex],
               name: next.name,
-            }
+            };
           }
           nextProfiles[editingIndex] = {
             ...nextProfiles[editingIndex],
@@ -2147,15 +2156,15 @@ function Results({
             })),
             risks: next.risks,
             recommended_sales_approach: next.recommended_sales_approach,
-          }
+          };
           onChange({
             ...result,
             companies: nextCompanies,
             company_profiles: nextProfiles,
-          })
-          setEditingIndex(null)
+          });
+          setEditingIndex(null);
         }}
       />
     </div>
-  )
+  );
 }
