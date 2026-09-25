@@ -98,7 +98,13 @@ class SellerPipeline:
                 f"{product_names}."
             )
 
-            note(f"Looking into {row.company_name} ({index}/{len(uploaded)})")
+            if len(uploaded) == 1:
+                note(f"Looking into {row.company_name}")
+            else:
+                note(
+                    f"Looking into {row.company_name} "
+                    f"({index}/{len(uploaded)})"
+                )
             report = self.analyzer.analyze(
                 company_name=row.company_name,
                 research_goal=research_goal,

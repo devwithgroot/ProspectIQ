@@ -39,10 +39,7 @@ class ResearchAgent:
                 f"Step {state.steps_taken + 1}/{state.max_steps}"
             )
 
-            note(
-                f"Choosing what to look up next on {state.company_name} "
-                f"({state.steps_taken + 1}/{state.max_steps})"
-            )
+            note(f"Choosing what to look up next on {state.company_name}")
             decision = self.plan_next_action(state, on_progress=on_progress)
 
             print(

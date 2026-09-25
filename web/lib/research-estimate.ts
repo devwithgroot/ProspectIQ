@@ -48,11 +48,12 @@ export function remainingSeconds(
   percent: number | null = null
 ): number {
   const typicalSeconds = Math.max(60, typicalMinutes * 60)
-  const clockLeft = Math.max(0, typicalSeconds - elapsedSeconds)
-  if (percent != null && percent >= 88) {
-    return Math.min(clockLeft, 75)
+  if (percent == null || percent < 1) {
+    return Math.max(0, typicalSeconds - elapsedSeconds)
   }
-  return clockLeft
+  const byPercent = typicalSeconds * (1 - Math.min(percent, 99) / 100)
+  const byClock = typicalSeconds - elapsedSeconds
+  return Math.max(0, Math.min(byPercent, Math.max(0, byClock)))
 }
 
 export function formatTimeLeft(
@@ -64,10 +65,10 @@ export function formatTimeLeft(
     return null
   }
   const remaining = remainingSeconds(elapsedSeconds, typicalMinutes, percent)
-  if (percent != null && percent >= 92 && remaining <= 150) {
+  if (remaining <= 20) {
     return "Wrapping up"
   }
-  if (remaining <= 45) {
+  if (remaining <= 75) {
     return "About a minute left"
   }
   return `About ${formatMinutesLeft(remaining)} left`

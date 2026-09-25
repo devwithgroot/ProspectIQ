@@ -1515,6 +1515,15 @@ function isReasonLine(text: string): boolean {
   return text.trim().toLowerCase().startsWith("why:")
 }
 
+function displayProgressText(text: string): string {
+  return text
+    .replace(
+      /^(Choosing what to look up next on .+)\s+\(\d+\/\d+\)\s*$/,
+      "$1"
+    )
+    .replace(/^(Looking into .+)\s+\(1\/1\)\s*$/, "$1")
+}
+
 function ProgressLine({
   text,
   active,
@@ -1524,8 +1533,9 @@ function ProgressLine({
   active: boolean
   hint?: string
 }) {
-  const reason = isReasonLine(text)
-  const body = reason ? text.replace(/^why:\s*/i, "") : text
+  const shown = displayProgressText(text)
+  const reason = isReasonLine(shown)
+  const body = reason ? shown.replace(/^why:\s*/i, "") : shown
 
   if (reason) {
     return (
