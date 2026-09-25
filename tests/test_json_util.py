@@ -1,0 +1,30 @@
+from config.excon_schemas import DraftContent
+from llm.json_util import extract_json_text, parse_model
+
+
+def main():
+    print("\n==============================")
+    print("LLM JSON PARSE TEST")
+    print("==============================")
+
+    fenced = """
+<think>planning</think>
+```json
+{
+  "channel": "email",
+  "subject": "Working session",
+  "body": "Hello from the model.",
+  "rationale": "Primary channel"
+}
+```
+"""
+
+    parsed = parse_model(DraftContent, fenced)
+    assert parsed.channel == "email"
+    assert parsed.subject == "Working session"
+    print(extract_json_text(fenced))
+    print("LLM JSON PARSE TEST PASSED")
+
+
+if __name__ == "__main__":
+    main()

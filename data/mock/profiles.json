@@ -1,0 +1,259 @@
+[
+  {
+    "profile_id": "pf_ap_001",
+    "contact_id": "ct_ap_001",
+    "prospect_id": "pr_asian_paints",
+    "bio": "Amit runs network-wide supply-chain planning for decorative and adjacent categories. He cares about depot service levels, festive-season readiness, and whether a tool can sit next to the current SAP extracts.",
+    "responsibilities": [
+      "National demand and replenishment planning",
+      "Depot service-level ownership",
+      "Alignment between sales ops and plants"
+    ],
+    "interests": [
+      "SKU-level forecast accuracy",
+      "Reducing emergency depot transfers",
+      "Planner adoption, not model theatre"
+    ],
+    "recent_activity": [
+      "Spoke at an industry planning forum about consensus planning across sales and supply.",
+      "Internal mandate this year is cleaner festive-season readiness for top SKUs."
+    ],
+    "communication_style": "Direct, numbers-first, impatient with generic digital-transformation language.",
+    "likely_pain_vs_product": "NexusFlow Demand Planning is the fit: Amit already feels SKU-depot complexity and emergency transfers. He will reject anything that claims to replace SAP overnight.",
+    "talking_points": [
+      "Depot emergency transfers and festive-season stockouts",
+      "Keep planners in control of the consensus plan",
+      "Works with existing SAP planning extracts"
+    ],
+    "risks": [
+      "May already be evaluating IBP or an internal model",
+      "Will ask for a tightly scoped pilot, not a platform tour"
+    ],
+    "recommended_approach": "Lead with a 20-minute working session on top-SKU festive readiness and emergency transfers. Do not open with a full suite demo.",
+    "language": "en"
+  },
+  {
+    "profile_id": "pf_ap_002",
+    "contact_id": "ct_ap_002",
+    "prospect_id": "pr_asian_paints",
+    "bio": "Kavita owns digital programs that touch dealer systems, data platforms, and supply tools. She is the likely internal champion if a vendor can prove it will not create another unused dashboard.",
+    "responsibilities": [
+      "Digital roadmap for supply and channel systems",
+      "Vendor and integration triage",
+      "Adoption with business owners"
+    ],
+    "interests": [
+      "Integration with current data platforms",
+      "Business-owner adoption",
+      "Avoiding duplicate planning tools"
+    ],
+    "recent_activity": [
+      "Posted on LinkedIn about making dealer and supply data usable for operators, not only data teams.",
+      "Reviewing which planning and channel tools can sit on existing extracts."
+    ],
+    "communication_style": "Thoughtful, written, LinkedIn-comfortable. Prefers a crisp problem statement over a long pitch.",
+    "likely_pain_vs_product": "She can champion Demand Planning and TradePulse if they reuse current extracts and give Amit and the channel team something they will actually open.",
+    "talking_points": [
+      "Sit on existing SAP or DMS extracts",
+      "Operator-facing views, not another data lake project",
+      "Joint working session with supply and channel owners"
+    ],
+    "risks": [
+      "IT bandwidth is limited",
+      "Will block tools that look like a second system of record"
+    ],
+    "recommended_approach": "Short LinkedIn note that names the dealer-and-planning data problem and asks if a joint session with supply chain is worth it.",
+    "language": "en"
+  },
+  {
+    "profile_id": "pf_ap_003",
+    "contact_id": "ct_ap_003",
+    "prospect_id": "pr_asian_paints",
+    "bio": "Rohan manages West region dealer performance. He lives in WhatsApp with dealers and influencers and is skeptical of head-office dashboards that arrive after the month is closed.",
+    "responsibilities": [
+      "West region secondary sales",
+      "Dealer and painter-program follow-up",
+      "Field feedback into national planning"
+    ],
+    "interests": [
+      "Which dealers are actually slipping this week",
+      "Painter-program productivity",
+      "Less weekend Excel from head office"
+    ],
+    "recent_activity": [
+      "Flagged delayed visibility on a few high-potential West dealers after a scheme change.",
+      "Uses WhatsApp as the default work channel with the field team."
+    ],
+    "communication_style": "Informal, short, mobile-first. Will not read a long email.",
+    "likely_pain_vs_product": "TradePulse is the product he would feel: live dealer health and program spend, not a planning-theory conversation.",
+    "talking_points": [
+      "Week-level dealer health instead of month-end claims",
+      "Painter-program leakage",
+      "Mobile review for regional managers"
+    ],
+    "risks": [
+      "No work email on file",
+      "May see analytics as head-office surveillance if the tone is wrong"
+    ],
+    "recommended_approach": "One short WhatsApp note about West dealer visibility. Ask if a 15-minute look at two slipping outlets is useful. No brochure language.",
+    "language": "en"
+  },
+  {
+    "profile_id": "pf_ap_004",
+    "contact_id": "ct_ap_004",
+    "prospect_id": "pr_asian_paints",
+    "bio": "Deepak runs procurement and vendor onboarding. He has already asked prior vendors not to contact him directly and is a process blocker, not a champion.",
+    "responsibilities": [
+      "Vendor onboarding",
+      "Commercial negotiation",
+      "Rate-card and MSA control"
+    ],
+    "interests": [
+      "Standard procurement process",
+      "Avoiding unsolicited vendor traffic"
+    ],
+    "recent_activity": [
+      "Asked a previous planning-software vendor to stop direct outreach."
+    ],
+    "communication_style": "Formal and brief when he responds at all.",
+    "likely_pain_vs_product": "Not a fit for first-touch outreach. Any message should be suppressed.",
+    "talking_points": [],
+    "risks": [
+      "Do-not-contact",
+      "Outreach would damage the Asian Paints relationship"
+    ],
+    "recommended_approach": "Do not message. If the account moves, route through Amit or Kavita and procurement's official RFP path.",
+    "language": "en"
+  },
+  {
+    "profile_id": "pf_ts_001",
+    "contact_id": "ct_ts_001",
+    "prospect_id": "pr_tata_steel",
+    "bio": "Meera owns day-to-day performance at a major Tata Steel plant. She will only look at tools that help the shift huddle and will reject anything that asks her team to abandon the current MES.",
+    "responsibilities": [
+      "Plant throughput and downtime",
+      "Shift huddles and exception handling",
+      "Coordination with central manufacturing excellence"
+    ],
+    "interests": [
+      "Same-shift downtime visibility",
+      "Less waiting on monthly MIS",
+      "Tools her supervisors will actually use"
+    ],
+    "recent_activity": [
+      "Pushed for faster exception reviews after a bottleneck quarter.",
+      "Public plant-excellence comments focus on reliability, not software brands."
+    ],
+    "communication_style": "Operational, skeptical of vendor slides, prefers a plant-specific example.",
+    "likely_pain_vs_product": "PlantConnect is the only NexusFlow product that belongs in this conversation. Frame it as a visibility layer on the current stack.",
+    "talking_points": [
+      "Same-shift downtime picture for the huddle",
+      "Does not replace MES",
+      "One bottleneck view for plant and central ops"
+    ],
+    "risks": [
+      "OT and network constraints",
+      "May already have a historian or APM evaluation"
+    ],
+    "recommended_approach": "Email with one plant-huddle use case. Ask for 20 minutes with her and Industry 4.0, not a generic digital-transformation pitch.",
+    "language": "en"
+  },
+  {
+    "profile_id": "pf_ts_002",
+    "contact_id": "ct_ts_002",
+    "prospect_id": "pr_tata_steel",
+    "bio": "Arjun leads Industry 4.0 programs and is the translator between plant heads and central digital. He is active in an internal Slack workspace used by the manufacturing-excellence group.",
+    "responsibilities": [
+      "Industry 4.0 roadmap",
+      "Plant digital-tool evaluation",
+      "Avoiding duplicate dashboards"
+    ],
+    "interests": [
+      "Cross-plant comparison",
+      "Adoption by plant heads",
+      "Integration with existing historians"
+    ],
+    "recent_activity": [
+      "Internal thread on which visibility tools plant supervisors will actually open.",
+      "Evaluating layers that sit on current OT data rather than new systems of record."
+    ],
+    "communication_style": "Crisp, Slack-native, allergic to long email threads.",
+    "likely_pain_vs_product": "He can champion PlantConnect if it is positioned as a layer on the current MES and historian, with a plant-head huddle view.",
+    "talking_points": [
+      "Layer, not rip-and-replace",
+      "Plant-head and central-ops views",
+      "Same-shift exception reviews"
+    ],
+    "risks": [
+      "Crowded digital-manufacturing vendor list",
+      "Will ignore anything that sounds like a new MES"
+    ],
+    "recommended_approach": "Short Slack note in the manufacturing-excellence context. Offer a 15-minute compare against their current huddle workflow.",
+    "language": "en"
+  },
+  {
+    "profile_id": "pf_hv_001",
+    "contact_id": "ct_hv_001",
+    "prospect_id": "pr_havells",
+    "bio": "Sneha owns channel sales performance and the health of the dealer and electrician network. She is measured on secondary sales and program ROI, not on IT architecture.",
+    "responsibilities": [
+      "National channel sales",
+      "Dealer scorecards",
+      "Electrician and influencer programs"
+    ],
+    "interests": [
+      "Which dealers are quietly slipping",
+      "Program spend that is not producing secondary sales",
+      "Faster regional-manager reviews"
+    ],
+    "recent_activity": [
+      "Asked for a cleaner view of inactive influencers after a program audit.",
+      "Expanding coverage in a few under-indexed geographies."
+    ],
+    "communication_style": "Commercial and practical. Wants a clear 'so what' in the first paragraph.",
+    "likely_pain_vs_product": "TradePulse matches her job: dealer health, influencer-program leakage, and regional-manager mobile review.",
+    "talking_points": [
+      "Inactive influencer spend",
+      "Week-level dealer scorecards",
+      "New-geography channel design"
+    ],
+    "risks": [
+      "May believe the current DMS already covers this",
+      "Regional teams can resist anything that feels like surveillance"
+    ],
+    "recommended_approach": "Email that names inactive-influencer spend and slipping dealers. Ask for a 20-minute look at two regions, not a platform demo.",
+    "language": "en"
+  },
+  {
+    "profile_id": "pf_hv_002",
+    "contact_id": "ct_hv_002",
+    "prospect_id": "pr_havells",
+    "bio": "Vikram runs IT and will be in the room if TradePulse needs DMS or identity integrations. He is not the commercial buyer and has not consented to SMS.",
+    "responsibilities": [
+      "Enterprise applications",
+      "Vendor security and integration review",
+      "Protecting the current DMS landscape"
+    ],
+    "interests": [
+      "SSO and data-residency questions",
+      "Whether a tool creates a second system of record",
+      "Support burden on IT"
+    ],
+    "recent_activity": [
+      "Tightening vendor questionnaires for analytics tools that sit on sales data."
+    ],
+    "communication_style": "Precise, risk-aware, email-only for first contact.",
+    "likely_pain_vs_product": "Useful later for integration, not for first commercial outreach. If messaged, keep it to architecture fit and a pointer to Sneha.",
+    "talking_points": [
+      "Sits on existing DMS extracts",
+      "Does not replace the dealer system",
+      "IT review after a commercial working session"
+    ],
+    "risks": [
+      "Will stall a deal if first touch is a product blast",
+      "SMS consent is false and must stay unused"
+    ],
+    "recommended_approach": "Only email if Sneha wants IT in the first meeting. Otherwise wait. Never SMS.",
+    "language": "en"
+  }
+]

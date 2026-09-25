@@ -1,0 +1,162 @@
+[
+  {
+    "prospect_id": "pr_asian_paints",
+    "company_name": "Asian Paints",
+    "website": "https://www.asianpaints.com",
+    "industry": "Paints and coatings",
+    "headquarters": "Mumbai, India",
+    "employee_count": 8000,
+    "founded_year": 1942,
+    "description": "India's largest decorative paints company, with a dense dealer network, a growing waterproofing and home-improvement portfolio, and ongoing capacity and digital investments.",
+    "products_services": [
+      "Decorative paints",
+      "Waterproofing",
+      "Adhesives and construction chemicals",
+      "Home painting services",
+      "Industrial coatings"
+    ],
+    "signals": [
+      {
+        "type": "expansion",
+        "description": "Continued capacity and depot-network expansion to support decorative and waterproofing demand.",
+        "strength": "high",
+        "evidence": "Public coverage of plant and network investments plus official company materials."
+      },
+      {
+        "type": "growth",
+        "description": "Category leadership in decorative paints with a push into adjacent home-improvement services.",
+        "strength": "high",
+        "evidence": "Market and company overview sources collected in research."
+      },
+      {
+        "type": "technology",
+        "description": "Digital and dealer-facing technology investment to manage a very large channel.",
+        "strength": "medium",
+        "evidence": "Hiring and technology signals around channel and supply systems."
+      },
+      {
+        "type": "hiring",
+        "description": "Technology and supply-chain hiring around planning, data, and dealer systems.",
+        "strength": "medium",
+        "evidence": "Public hiring and technology research snippets."
+      }
+    ],
+    "pain_points": [
+      "SKU and depot complexity makes consensus demand planning slow",
+      "Dealer and painter-program performance is hard to see before month-end",
+      "New-depot and new-category ramps need cleaner sell-out data"
+    ],
+    "overall_score": 82.0,
+    "recommendation": "High-priority prospect",
+    "why_relevant_to_user": "Asian Paints is a textbook NexusFlow ICP: a branded coatings leader with thousands of dealers, a festive-and-monsoon demand cycle, and live expansion. Demand Planning and TradePulse map directly to supply and channel pain.",
+    "matched_product_ids": [
+      "pd_demand_planning",
+      "pd_tradepulse"
+    ],
+    "sources": [
+      "https://www.asianpaints.com",
+      "Public market and expansion coverage from research tools"
+    ]
+  },
+  {
+    "prospect_id": "pr_tata_steel",
+    "company_name": "Tata Steel",
+    "website": "https://www.tatasteel.com",
+    "industry": "Metals and steel manufacturing",
+    "headquarters": "Mumbai, India",
+    "employee_count": 75000,
+    "founded_year": 1907,
+    "description": "Integrated steel producer with large Indian plants, a long-running manufacturing-excellence program, and public Industry 4.0 / digital plant initiatives.",
+    "products_services": [
+      "Flat and long steel",
+      "Downstream steel products",
+      "Industrial solutions for auto and construction"
+    ],
+    "signals": [
+      {
+        "type": "technology",
+        "description": "Active Industry 4.0 and plant-digitalization programs across major sites.",
+        "strength": "high",
+        "evidence": "Public manufacturing-excellence and digital-plant materials."
+      },
+      {
+        "type": "strategic",
+        "description": "Ongoing capex and reliability programs at core Indian plants.",
+        "strength": "high",
+        "evidence": "Capacity and operations commentary in public sources."
+      },
+      {
+        "type": "hiring",
+        "description": "Digital manufacturing, reliability, and data roles around plant operations.",
+        "strength": "medium",
+        "evidence": "Public hiring signals for manufacturing-digital roles."
+      }
+    ],
+    "pain_points": [
+      "Plant and central teams do not always share the same downtime picture",
+      "Exception reviews still wait on monthly MIS in some lines",
+      "New digital tools fail if they ask plants to abandon the existing MES"
+    ],
+    "overall_score": 74.0,
+    "recommendation": "Potential prospect",
+    "why_relevant_to_user": "Tata Steel is a PlantConnect fit: multiple large plants, a serious digital-manufacturing agenda, and buyers who will reject anything that rips out MES. The conversation is plant visibility, not another historian rip-and-replace.",
+    "matched_product_ids": [
+      "pd_plantconnect"
+    ],
+    "sources": [
+      "https://www.tatasteel.com",
+      "Public Industry 4.0 and plant-operations coverage"
+    ]
+  },
+  {
+    "prospect_id": "pr_havells",
+    "company_name": "Havells India",
+    "website": "https://www.havells.com",
+    "industry": "Electricals and consumer durables",
+    "headquarters": "Noida, India",
+    "employee_count": 12000,
+    "founded_year": 1958,
+    "description": "Electricals and durables brand with a wide dealer network across lighting, switchgear, fans, and related categories, plus continued channel and brand investment.",
+    "products_services": [
+      "Switchgear",
+      "Lighting",
+      "Fans and appliances",
+      "Cables and electrical accessories"
+    ],
+    "signals": [
+      {
+        "type": "expansion",
+        "description": "Channel and category expansion across electricals and durables.",
+        "strength": "high",
+        "evidence": "Public brand and distribution coverage."
+      },
+      {
+        "type": "growth",
+        "description": "Sustained brand-led growth in a fragmented electricals trade.",
+        "strength": "medium",
+        "evidence": "Market and company overview sources."
+      },
+      {
+        "type": "strategic",
+        "description": "Influencer and electrician programs sit next to a large dealer base.",
+        "strength": "medium",
+        "evidence": "Channel-program commentary in public materials."
+      }
+    ],
+    "pain_points": [
+      "Dealer health is still reviewed too late for regional managers",
+      "Electrician and influencer program spend is hard to attribute",
+      "New-geography channel design needs cleaner secondary-sales data"
+    ],
+    "overall_score": 71.0,
+    "recommendation": "Potential prospect",
+    "why_relevant_to_user": "Havells is a TradePulse conversation: a branded electricals network, electrician/influencer programs, and regional managers who still run a lot of the channel from lagging reports.",
+    "matched_product_ids": [
+      "pd_tradepulse"
+    ],
+    "sources": [
+      "https://www.havells.com",
+      "Public channel and brand coverage"
+    ]
+  }
+]
