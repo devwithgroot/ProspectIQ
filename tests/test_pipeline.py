@@ -15,6 +15,7 @@ def main():
         website="https://www.zoho.com",
         prospects_csv=Path("data/uploads/sample_prospects.csv"),
         title="Account Executive",
+        industry="Software / SaaS",
     )
 
     names = [row.company_name for row in result.uploaded]

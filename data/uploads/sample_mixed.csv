@@ -1,0 +1,7 @@
+company_name,website,notes
+Tata Steel,,Plant digitalization conversation. Website left blank on purpose.
+JSW Steel,https://www.jsw.in,
+Hindalco,https://www.hindalco.com,Multi-plant metals. PlantConnect first; planning later.
+Hindalco,https://www.hindalco.com,Duplicate row — parser should skip this.
+Godrej Consumer Products,,FMCG demand-planning fit. No site in the CRM export.
+CEAT,https://www.ceat.com,Aftermarket dealer network. TradePulse conversation.

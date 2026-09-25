@@ -1,11 +1,11 @@
 # User flow
 
-This is the product path a salesperson is supposed to take. Steps 1–4 run today from the CLI (`./run_pipeline.sh`) on MLX and Tavily. There is no browser form yet. Contacts and outreach still use fixtures.
+This is the product path a salesperson is supposed to take. Steps 1–4 run today from the Next.js form (`./run_app.sh`) or the CLI (`./run_pipeline.sh`) on MLX and Tavily. Contacts and outreach still use fixtures.
 
 ## Intended path
 
 ```text
-1. Enter name, phone, email
+1. Enter name, phone, email, industry, and title
 2. Paste company website
 3. Optionally upload prospect companies
 4. System builds the seller + researches prospects
@@ -22,8 +22,12 @@ The seller types:
 - Full name
 - Phone number
 - Work email
+- Outreach email (can be different from work email)
+- When `OTP_REQUIRED=true`, a code is sent to that inbox and must be confirmed in a dialog. It is off by default.
+- Industry (suggestive dropdown, catalog only)
+- Title (suggestive dropdown, titles for that industry only)
 
-That becomes the `User` record: who is sending, how they sign messages, and which channels they can use as the from-address later.
+That becomes the `User` record. Work email is who they are. Outreach email is the from-address later. Industry and title are enums (`Industry`, `SellerTitle` in `config/catalog.py`). Free-typed values are rejected.
 
 ### 2. Company from a link
 
@@ -32,7 +36,7 @@ They paste their company website.
 `OnboardingAgent` then:
 
 1. Fetches the page with `WebsiteReaderTool`
-2. Asks MLX to fill `SellerCompany` (name, industry, description, size, HQ)
+2. Asks MLX to fill `SellerCompany` (name, description, size, HQ). Industry stays the value the seller picked.
 3. Infers the `Product` list: what they sell, ICP, value props, typical buyers
 
 If the page cannot be fetched, MLX still runs on the URL alone. The seller should be able to correct the result before outreach; that edit step is not in the CLI yet.
@@ -48,7 +52,7 @@ They may already have a list. Upload (CSV / sheet) with at least:
 | notes | no | Why they care |
 | owner | no | If a team later |
 
-Uploaded rows go straight into `ProspectIQ.analyze()`. Each company is researched with Tavily, scored and reported with MLX, then mapped to a `Prospect` (`signals`, `pain_points`, score, `why_relevant_to_user`, `matched_product_ids`). See [PIPELINE.md](PIPELINE.md).
+The form first stages the parsed rows (company, website, notes; duplicates dropped) so the seller can review and edit the list. Research starts from that staging screen. The form estimates time from list size: about a minute to read the seller site, then about 2–3 minutes per company, plus a few extra minutes of buffer. After research, briefings stay on a review screen so the seller can edit the wording before they keep it. Each company is then researched with Tavily, scored and reported with MLX, then mapped to a `Prospect` (`signals`, `pain_points`, score, `why_relevant_to_user`, `matched_product_ids`). See [PIPELINE.md](PIPELINE.md).
 
 If they upload nothing, Phase 1 can later *discover* prospects from the seller ICP. That discovery path is not built yet. Upload is the first supported way to get companies into the system.
 
@@ -84,15 +88,15 @@ Not built. The event log already records `drafted`, `edited`, `approved`, `rejec
 
 ## What works if you run the repo today
 
-The first application slice is a CLI form, not a browser UI. It uses the same MLX and Tavily clients as the rest of the repo.
+The first application slice is the Next.js + shadcn form, plus the same CLI. Both use the same MLX and Tavily clients. The form is four sections: You, Role, Company, Prospects.
 
-1. Enter name, phone, email, and company website (`./run_pipeline.sh` or `python -m app.pipeline`)
+1. Enter name, phone, email, industry, title, and company website (`./run_app.sh` or `./run_pipeline.sh`)
 2. Point at a prospect CSV (`company_name`, optional `website`, `notes`)
 3. Onboarding reads the seller site and infers company + products via MLX
 4. Live `ProspectIQ.analyze()` runs for **each uploaded company** (Tavily + MLX)
 5. Researched prospects are saved under `data/runs/`
 
-Sample file: `data/uploads/sample_prospects.csv`.
+Sample files: `data/uploads/sample_*.csv` (short list, single company, names-only, mixed quality, and one file per NexusFlow product ICP).
 
 Contacts are still mock (`data/mock/contacts.json`) until contact discovery exists. `./run_excon.sh` still drafts from those fixtures.
 

@@ -21,7 +21,7 @@ Mac mini :8080
 See [PIPELINE.md](PIPELINE.md). After signup fields + CSV, the orchestrator runs on the real APIs:
 
 ```text
-name, phone, email, website
+name, phone, work email, outreach email, industry, title, website
         │
         ▼
 WebsiteReaderTool + MLX     →  User + Products
@@ -105,13 +105,14 @@ Connectors: email (SMTP), Slack (Web API), SMS (Twilio-shaped), WhatsApp (Cloud 
 | File | Role |
 |---|---|
 | `config/schemas.py` | Research evidence, scores, `ProspectReport` |
+| `config/catalog.json` | Closed `Industry` and `SellerTitle` lists, titles per industry |
 | `config/excon_schemas.py` | User, Product, Prospect, Contact, Profile, drafts, events |
 | `.env` | MLX, Tavily, connector keys. Never commit |
 
 ## What is not in the architecture yet
 
-- HTTP/API or browser UI
-- Signup / session
+- Full app shell beyond the Next.js form (history, EXCON, auth)
+- Signup / session persistence
 - Persistence (DB / CRM)
 - Contact discovery from Phase 1
 - EXCON fed from pipeline runs (still mock contacts)

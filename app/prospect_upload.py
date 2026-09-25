@@ -13,12 +13,20 @@ class UploadedProspect(BaseModel):
 
 
 REQUIRED_COLUMN = "company_name"
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
 
 def load_prospect_csv(path: str | Path) -> list[UploadedProspect]:
     csv_path = Path(path)
     if not csv_path.is_file():
         raise FileNotFoundError(f"Prospect CSV not found: {csv_path}")
+
+    size = csv_path.stat().st_size
+    if size > MAX_UPLOAD_BYTES:
+        raise ValueError(
+            f"File is {size / (1024 * 1024):.1f} MB. "
+            "Maximum is 5 MB per file."
+        )
 
     with csv_path.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)

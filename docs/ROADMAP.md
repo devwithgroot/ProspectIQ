@@ -58,7 +58,7 @@ Four phases. Build in this order. Do not skip seller context or approval.
 
 **Next**
 
-- Browser UI for the CLI form
+- Richer Next.js app (history, edit seller, EXCON)
 - Prospect list → contact list → draft reviewer
 - Dashboards on drafted / approved / sent / failed
 - Browse `data/runs/` reports in the UI
@@ -68,7 +68,7 @@ Four phases. Build in this order. Do not skip seller context or approval.
 Done as a CLI, not a browser UI:
 
 1. Form: name, phone, email, company URL — `./run_pipeline.sh`
-2. CSV of prospect companies — `data/uploads/sample_prospects.csv`
+2. CSV of prospect companies — `data/uploads/sample_*.csv`
 3. `ProspectIQ.analyze()` runs for each uploaded company
 4. Mock contacts still used for EXCON
 5. Next: wire the saved seller + researched prospects into EXCON, then a real UI

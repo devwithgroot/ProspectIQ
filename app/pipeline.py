@@ -37,9 +37,12 @@ class SellerPipeline:
         full_name: str,
         phone: str,
         email: str,
+        outreach_email: str | None = None,
         website: str,
         prospects_csv: str | Path,
-        title: str | None = None,
+        title: str,
+        industry: str,
+        outreach_email_verified: bool = True,
     ) -> PipelineResult:
         print("\n==============================")
         print("SELLER ONBOARDING")
@@ -49,11 +52,15 @@ class SellerPipeline:
             full_name=full_name,
             phone=phone,
             email=email,
+            outreach_email=outreach_email or email,
+            outreach_email_verified=outreach_email_verified,
             website=website,
             title=title,
+            industry=industry,
         )
 
         print(f"Seller: {user.full_name} <{user.email}>")
+        print(f"Outreach from: {user.outreach_email}")
         print(f"Company: {user.company.name}")
         print(f"Products: {', '.join(product.name for product in products)}")
 
@@ -154,16 +161,20 @@ def main() -> None:
     parser.add_argument("--name")
     parser.add_argument("--phone")
     parser.add_argument("--email")
+    parser.add_argument("--outreach-email")
     parser.add_argument("--website")
     parser.add_argument("--title")
+    parser.add_argument("--industry")
     parser.add_argument("--prospects", help="CSV with company_name,website,notes")
     args = parser.parse_args()
 
     full_name = args.name or _prompt("Your name")
     phone = args.phone or _prompt("Phone")
     email = args.email or _prompt("Email")
+    outreach_email = args.outreach_email or email
     website = args.website or _prompt("Company website")
-    title = args.title
+    industry = args.industry or _prompt("Industry")
+    title = args.title or _prompt("Title")
     prospects_csv = args.prospects or _prompt(
         "Prospect CSV path",
         "data/uploads/sample_prospects.csv",
@@ -173,9 +184,11 @@ def main() -> None:
         full_name=full_name,
         phone=phone,
         email=email,
+        outreach_email=outreach_email,
         website=website,
         prospects_csv=prospects_csv,
         title=title,
+        industry=industry,
     )
 
 

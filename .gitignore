@@ -37,3 +37,8 @@ logs/
 
 # Pipeline run output
 data/runs/
+
+# Next.js
+web/node_modules/
+web/.next/
+web/out/

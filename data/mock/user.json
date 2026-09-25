@@ -3,6 +3,8 @@
   "full_name": "Priya Mehta",
   "title": "Account Executive",
   "email": "priya.mehta@nexusflow.io",
+  "outreach_email": "priya.mehta@nexusflow.io",
+  "outreach_email_verified": true,
   "phone": "+919845512210",
   "linkedin_url": "https://www.linkedin.com/in/priya-mehta-nexusflow",
   "locale": "en-IN",
@@ -13,7 +15,7 @@
   ],
   "company": {
     "name": "NexusFlow",
-    "industry": "Enterprise supply-chain and industrial software",
+    "industry": "Industrial software",
     "website": "https://www.nexusflow.io",
     "size": "180 employees",
     "headquarters": "Bengaluru, India",

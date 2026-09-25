@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from config.catalog import parse_industry, parse_title, title_allowed
 from config.excon_schemas import (
     Product,
     SellerCompany,
@@ -27,9 +28,17 @@ class InferredProduct(BaseModel):
     typical_buyers: list[str] = Field(default_factory=list)
 
 
+class InferredCompany(BaseModel):
+    name: str
+    industry: str = ""
+    website: str
+    size: str
+    description: str
+    headquarters: str | None = None
+
+
 class InferredSeller(BaseModel):
-    title: str = "Account Executive"
-    company: SellerCompany
+    company: InferredCompany
     products: list[InferredProduct] = Field(default_factory=list)
     tone: str = "professional and concise"
     cta: str = "Suggest a 20-minute working session."
@@ -45,13 +54,22 @@ class OnboardingAgent:
         full_name: str,
         phone: str,
         email: str,
+        outreach_email: str,
         website: str,
-        title: str | None = None,
+        title: str,
+        industry: str,
+        outreach_email_verified: bool = False,
     ) -> tuple[User, list[Product]]:
+        seller_title = parse_title(title)
+        seller_industry = parse_industry(industry)
+        if not title_allowed(seller_title, seller_industry):
+            raise ValueError(
+                f"{seller_title.value} is not a title used in "
+                f"{seller_industry.value}."
+            )
         page_text = self._read_site(website)
         inferred = self._infer(full_name, email, website, page_text)
 
-        seller_title = (title or inferred.title or "Account Executive").strip()
         products = [
             self._to_product(item, index)
             for index, item in enumerate(inferred.products, start=1)
@@ -72,11 +90,20 @@ class OnboardingAgent:
             full_name=full_name.strip(),
             title=seller_title,
             email=email.strip(),
+            outreach_email=outreach_email.strip(),
+            outreach_email_verified=outreach_email_verified,
             phone=phone.strip() or None,
-            company=inferred.company,
+            company=SellerCompany(
+                name=inferred.company.name,
+                industry=seller_industry,
+                website=website,
+                size=inferred.company.size,
+                description=inferred.company.description,
+                headquarters=inferred.company.headquarters,
+            ),
             voice=SenderVoice(
                 tone=inferred.tone,
-                signature=f"{full_name.strip()}\n{email.strip()}",
+                signature=f"{full_name.strip()}\n{outreach_email.strip()}",
                 cta=inferred.cta,
             ),
             product_ids=[product.product_id for product in products],
@@ -120,10 +147,9 @@ Website text:
 
 Return ONLY valid JSON:
 {{
-  "title": "likely seller title or Account Executive",
   "company": {{
     "name": "...",
-    "industry": "...",
+    "industry": "",
     "website": "{website}",
     "size": "unknown if not stated",
     "headquarters": "unknown if not stated",

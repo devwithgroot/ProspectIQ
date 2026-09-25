@@ -37,7 +37,8 @@ Older setup journals in `docs/*.docx` are historical. These markdown files are t
 
 ## Current stack
 
-- **App:** Python, Pydantic, sequential agents
+- **UI:** Next.js + shadcn (`web/`)
+- **API:** FastAPI (`app/server.py`) calling the live Python pipeline
 - **Model:** Qwen3 8B 4-bit on a Mac mini via MLX-LM (`LLMClient` → `/v1/chat/completions`)
 - **Search:** Tavily
 - **Outreach:** EXCON drafts for email, LinkedIn, WhatsApp, Slack, SMS. Send is approval-gated and dry-run by default
@@ -76,7 +77,23 @@ mlx_lm.server \
 
 ## Run
 
-Seller form + prospect upload (orchestrator runs after the CSV):
+Next.js form in four sections (You, Role, Company, Prospects):
+
+```bash
+cd web && npm install
+cd ..
+./run_app.sh
+```
+
+UI is http://localhost:3000. API is http://localhost:8000. After you upload the CSV, the form stages the parsed companies so you can review them before research starts. Max 5 MB per file. Outreach OTP is off unless `OTP_REQUIRED=true` in `.env`.
+
+UI / upload checks:
+
+```bash
+python -m tests.run_ui
+```
+
+CLI form + prospect upload:
 
 ```bash
 ./run_pipeline.sh \
@@ -84,10 +101,12 @@ Seller form + prospect upload (orchestrator runs after the CSV):
   --phone "+919845512210" \
   --email "priya.mehta@nexusflow.io" \
   --website "https://www.zoho.com" \
+  --industry "Software / SaaS" \
+  --title "Account Executive" \
   --prospects data/uploads/sample_prospects.csv
 ```
 
-Omit the flags to be prompted. Each uploaded `company_name` is passed to live `ProspectIQ.analyze()` (Tavily + MLX). Results land in `data/runs/`. Details: [docs/PIPELINE.md](docs/PIPELINE.md).
+Omit the flags to be prompted. Swap `--prospects` for any file in `data/uploads/` (single company, names-only, mixed columns, or a Demand Planning / PlantConnect / TradePulse list). Each uploaded `company_name` is passed to live `ProspectIQ.analyze()` (Tavily + MLX). Results land in `data/runs/`. Details: [docs/PIPELINE.md](docs/PIPELINE.md).
 
 Company research only:
 
@@ -107,8 +126,9 @@ That runs mock/schema/connector checks, then live outreach + EXCON against Qwen.
 
 ```text
 agents/          Research, scoring, report, outreach
-app/             ProspectIQ.analyze(), seller pipeline, Excon
-config/          Research schemas + EXCON schemas
+app/             ProspectIQ.analyze(), seller pipeline, FastAPI, Excon
+web/             Next.js + shadcn form
+config/          Research schemas, EXCON schemas, industry/title catalog
 connectors/      Email, LinkedIn, WhatsApp, Slack, SMS
 data/mock/       Seller, products, prospects, contacts, profiles
 llm/             MLX client + JSON parse/retry
