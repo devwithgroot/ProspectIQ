@@ -163,11 +163,13 @@ def main():
         class SlowPipeline:
             def run(self, **kwargs):
                 on_progress = kwargs.get("on_progress")
-                if on_progress:
-                    on_progress("Looking into Acme")
                 for _ in range(40):
-                    if on_progress:
-                        on_progress("Reading what we found on Acme")
+                    try:
+                        if on_progress:
+                            on_progress("Looking into Acme")
+                            on_progress("Reading what we found on Acme")
+                    except ResearchSkipped:
+                        continue
                     time.sleep(0.02)
                 return _FakeResult()
 
@@ -206,7 +208,7 @@ def main():
 
             skipped = client.post(f"/api/research/{job_id}/skip")
             assert skipped.status_code == 200
-            assert skipped.json()["skip_requested"] is True
+            assert skipped.json()["current"] == "Skipping Acme"
             stopped = client.post(f"/api/research/{job_id}/cancel")
             assert stopped.status_code == 200
             assert stopped.json()["cancel_requested"] is True

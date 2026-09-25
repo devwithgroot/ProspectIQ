@@ -194,10 +194,10 @@ Time estimate on the form includes this people pass (about 3–5 minutes per com
 |---|---|
 | `web/components/research-form.tsx` | Seller form, company list, researching UI, briefing review |
 | `web/lib/research-store.ts` | Browser draft in localStorage (`prospectiq-draft-v1`) |
-| `web/lib/research-job.ts` | Poll `GET /api/research/{job_id}` |
+| `web/lib/research-job.ts` | Poll `GET /api/research/{job_id}`; stop or skip company |
 | `web/lib/research-estimate.ts` | Time left and activity copy |
-| `app/server.py` | FastAPI: start research, poll job |
-| `app/research_jobs.py` | Job store + percent; writes `data/jobs/rj_*.json` |
+| `app/server.py` | FastAPI: start research, poll, cancel, skip company |
+| `app/research_jobs.py` | Job store + percent + cancel/skip; writes `data/jobs/rj_*.json` |
 | `app/pipeline.py` | `SellerPipeline` — whole run; `save_run()` writes `data/runs/` |
 | `app/onboarding.py` | Fills `User`, `SellerCompany`, `Product` from the website |
 | `app/orchestrator.py` | `ProspectIQ.analyze()` — company research, score, report |
