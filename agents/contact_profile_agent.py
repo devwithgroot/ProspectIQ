@@ -12,6 +12,9 @@ from llm.client import LLMClient
 from llm.json_util import generate_model, reason_lines
 
 from app.report_mapper import slug
+from config.research_log import get_logger
+
+log = get_logger("contact")
 
 
 class ContactProfileAgent:
@@ -27,6 +30,7 @@ class ContactProfileAgent:
         evidence: list[Evidence] | None = None,
         on_progress: Callable[[str], None] | None = None,
     ) -> ContactProfile:
+        log.info("Contact profile start %s at %s", contact.full_name, company.name)
         if on_progress is not None:
             on_progress(f"Writing a briefing for {contact.full_name}")
 
@@ -90,7 +94,9 @@ Keep lists short (2-4 items). Bio is 1-3 sentences.
                 prompt,
                 max_tokens=700,
             )
+            log.info("Contact profile ok %s", contact.full_name)
         except ValueError:
+            log.exception("Contact profile fallback for %s", contact.full_name)
             draft = self._fallback(contact, company, company_profile)
 
         if on_progress is not None:

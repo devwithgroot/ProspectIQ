@@ -11,5 +11,6 @@ else
 fi
 
 export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONUNBUFFERED=1
 
-exec "$PYTHON" -m uvicorn app.server:app --host 127.0.0.1 --port 8000
+exec "$PYTHON" -m uvicorn app.server:app --host 127.0.0.1 --port 8000 --log-level info

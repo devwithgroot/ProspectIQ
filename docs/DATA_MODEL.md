@@ -2,7 +2,7 @@
 
 Who is asked and which object is filled: [RESEARCH.md](RESEARCH.md).
 
-Seller and outreach objects live in `config/excon_schemas.py`. Scratch notes from a live run (`Evidence`, `ProspectReport`, `PersonData`) live in `config/schemas.py` and are mapped before save.
+User and outreach objects live in `config/excon_schemas.py`. Scratch notes from a live run (`Evidence`, `ProspectReport`, `PersonData`) live in `config/schemas.py` and are mapped before save.
 
 ```text
 User ──owns──► Product
@@ -16,23 +16,23 @@ User + Product + Company + CompanyProfile + Contact + ContactProfile
 
 IDs: `us_`, `pd_`, `co_`, `cp_`, `ct_`, `pf_`, `dr_`.
 
-## User (seller)
+## User
 
 Who is signed in and what they sell. From name / phone / work email plus the company website.
 
-Key fields: `user_id`, `full_name`, `title` (`SellerTitle`), `email` (work identity), `outreach_email` (from-address), `outreach_email_verified`, `phone`, `company` (`SellerCompany`), `voice`, `product_ids`.
+Key fields: `user_id`, `full_name`, `title` (`UserTitle`), `email` (work identity), `outreach_email` (from-address), `outreach_email_verified`, `phone`, `company` (`UserCompany`), `voice`, `product_ids`.
 
 Research signup only collects work email. Until engagement, `outreach_email` defaults to that address. `title` and `company.industry` are catalog enums (`config/catalog.json`). The Next.js form ships the same list as `web/lib/catalog-data.json`.
 
-`User.company` is the seller’s firm, not a researched target `Company`.
+`User.company` is the user’s firm, not a researched target `Company`.
 
 ## Product
 
-One thing the seller can pitch. `CompanyProfile.matched_product_ids` points here.
+One thing the user can pitch. `CompanyProfile.matched_product_ids` points here.
 
 ICP, target industries, value props, use cases, differentiators, objections, typical buyer titles, pricing note, proof points.
 
-Inferred from the seller website by `OnboardingAgent`.
+Inferred from the user’s website by `OnboardingAgent`.
 
 ## Company
 
@@ -44,7 +44,7 @@ The target firm (the record). Name, site, industry, HQ, size, year, short descri
 
 The company briefing (how to sell the firm). Joined by `company_id`.
 
-Executive summary, score, recommendation, signals, pain points, risks, recommended approach (roles, not invented names), why relevant to this seller, matched products.
+Executive summary, score, recommendation, signals, pain points, risks, recommended approach (roles, not invented names), why relevant to this user, matched products.
 
 ## Contact
 
@@ -55,7 +55,7 @@ A person at that company. Joined by `company_id`.
 - `preferred_channel` + `consent` per channel
 - `do_not_contact`
 
-Live research turns Prospeo `PersonData` into this. Email/SMS consent stays false until the seller says so. LinkedIn consent is on if a profile URL exists.
+Live research turns Prospeo `PersonData` into this. Email/SMS consent stays false until the user says so. LinkedIn consent is on if a profile URL exists.
 
 Mocks still include: no email, SMS consent off, one DNC contact. Those cases must keep working.
 
@@ -101,6 +101,6 @@ Load with `data.loader.load_mock_bundle()`.
 
 ## Live run files
 
-`SellerPipeline` writes `data/runs/<timestamp>/` with `user.json`, `products.json`, `companies.json`, `company_profiles.json`, `contacts.json`, `contact_profiles.json`.
+`UserPipeline` writes `data/runs/<timestamp>/` with `user.json`, `products.json`, `companies.json`, `company_profiles.json`, `contacts.json`, `contact_profiles.json`.
 
 EXCON still defaults to the mock bundle until `prepare()` is pointed at a run.

@@ -74,6 +74,16 @@ def load_prospect_csv(path: str | Path) -> list[UploadedProspect]:
     return rows
 
 
+def upload_too_large(size_bytes: int | None) -> bool:
+    if size_bytes is None:
+        return False
+    return size_bytes > MAX_UPLOAD_BYTES
+
+
+def preview_prospect_csv(path: str | Path) -> list[dict]:
+    return [row.model_dump() for row in load_prospect_csv(path)]
+
+
 def _optional(
     raw: dict[str, str | None],
     headers: dict[str, str],

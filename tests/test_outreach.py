@@ -80,6 +80,17 @@ def main():
         assert body["drafts"][0]["body"] == "Draft body"
         print("draft from live result ok")
 
+        linkedin = client.post(
+            "/api/outreach/draft",
+            json={
+                "contact_id": "ct_ap_001",
+                "channel": "linkedin",
+                "result": _payload(),
+            },
+        )
+        assert linkedin.status_code == 200
+        print("draft for chosen channel ok")
+
         unknown = client.post(
             "/api/outreach/draft",
             json={"contact_id": "ct_missing", "result": _payload()},

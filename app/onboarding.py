@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from config.catalog import parse_industry, parse_title, title_allowed
 from config.excon_schemas import (
     Product,
-    SellerCompany,
+    UserCompany,
     SenderVoice,
     User,
 )
@@ -16,6 +16,9 @@ from llm.json_util import generate_model, reason_lines
 from tools.website_reader import WebsiteReaderTool
 
 from app.report_mapper import slug
+from config.research_log import get_logger
+
+log = get_logger("onboarding")
 
 
 class InferredProduct(BaseModel):
@@ -39,7 +42,7 @@ class InferredCompany(BaseModel):
     headquarters: str | None = None
 
 
-class InferredSeller(BaseModel):
+class InferredUser(BaseModel):
     company: InferredCompany
     products: list[InferredProduct] = Field(default_factory=list)
     tone: str = "professional and concise"
@@ -66,17 +69,23 @@ class OnboardingAgent:
         def note(message: str) -> None:
             if on_progress is not None:
                 on_progress(message)
-        seller_title = parse_title(title)
-        seller_industry = parse_industry(industry)
-        if not title_allowed(seller_title, seller_industry):
+        user_title = parse_title(title)
+        user_industry = parse_industry(industry)
+        if not title_allowed(user_title, user_industry):
             raise ValueError(
-                f"{seller_title.value} is not a title used in "
-                f"{seller_industry.value}."
+                f"{user_title.value} is not a title used in "
+                f"{user_industry.value}."
             )
+        log.info("Onboard start user=%s website=%s industry=%s", email, website, industry)
         note("Opening your website")
         page_text = self._read_site(website, on_progress=on_progress)
         note("Figuring out what you sell")
         inferred = self._infer(full_name, email, website, page_text)
+        log.info(
+            "Onboard inferred company=%s products=%s",
+            inferred.company.name,
+            [item.name for item in inferred.products],
+        )
         note("Listing what you offer")
         for line in reason_lines(inferred.company.description, limit=2):
             note(line)
@@ -104,14 +113,14 @@ class OnboardingAgent:
         user = User(
             user_id=slug(email or full_name, "us"),
             full_name=full_name.strip(),
-            title=seller_title,
+            title=user_title,
             email=email.strip(),
             outreach_email=outreach_email.strip(),
             outreach_email_verified=outreach_email_verified,
             phone=phone.strip() or None,
-            company=SellerCompany(
+            company=UserCompany(
                 name=inferred.company.name,
-                industry=seller_industry,
+                industry=user_industry,
                 website=website,
                 size=inferred.company.size,
                 description=inferred.company.description,
@@ -136,7 +145,7 @@ class OnboardingAgent:
         try:
             page = self.reader.execute(url=website)
         except Exception as exc:
-            print(f"[Onboarding] Could not fetch website ({exc}). Using URL only.")
+            log.exception("Could not fetch website %s (%s). Using URL only.", website, exc)
             if on_progress is not None:
                 on_progress("Couldn’t open the site, so we’ll use the web address")
             return f"Website URL: {website}\nPage could not be fetched."
@@ -159,7 +168,7 @@ class OnboardingAgent:
         email: str,
         website: str,
         page_text: str,
-    ) -> InferredSeller:
+    ) -> InferredUser:
         prompt = f"""
 You are onboarding a salesperson onto ProspectIQ.
 
@@ -203,7 +212,7 @@ Return ONLY valid JSON:
 """
         inferred = generate_model(
             self.llm,
-            InferredSeller,
+            InferredUser,
             prompt,
             temperature=0.0,
             max_tokens=900,
@@ -226,3 +235,61 @@ Return ONLY valid JSON:
             objections=[],
             typical_buyers=item.typical_buyers,
         )
+
+
+def same_website(left: str, right: str) -> bool:
+    def key(url: str) -> str:
+        text = url.strip().lower()
+        if text.startswith("http://"):
+            text = text[7:]
+        elif text.startswith("https://"):
+            text = text[8:]
+        if text.startswith("www."):
+            text = text[4:]
+        return text.rstrip("/")
+
+    return bool(key(left)) and key(left) == key(right)
+
+
+def reuse_seller(
+    saved: User,
+    products: list[Product],
+    *,
+    full_name: str,
+    phone: str,
+    email: str,
+    outreach_email: str,
+    website: str,
+    title: str,
+    industry: str,
+    outreach_email_verified: bool = False,
+) -> tuple[User, list[Product]]:
+    user_title = parse_title(title)
+    user_industry = parse_industry(industry)
+    if not title_allowed(user_title, user_industry):
+        raise ValueError(
+            f"{user_title.value} is not a title used in "
+            f"{user_industry.value}."
+        )
+    updated = saved.model_copy(
+        update={
+            "full_name": full_name.strip(),
+            "title": user_title,
+            "email": email.strip(),
+            "outreach_email": outreach_email.strip(),
+            "outreach_email_verified": outreach_email_verified,
+            "phone": phone.strip() or None,
+            "company": saved.company.model_copy(
+                update={
+                    "industry": user_industry,
+                    "website": website,
+                }
+            ),
+            "voice": saved.voice.model_copy(
+                update={
+                    "signature": f"{full_name.strip()}\n{outreach_email.strip()}",
+                }
+            ),
+        }
+    )
+    return updated, products

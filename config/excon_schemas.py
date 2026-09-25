@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from config.catalog import Industry, SellerTitle
+from config.catalog import Industry, UserTitle
 
 
 Channel = Literal["email", "linkedin", "whatsapp", "slack", "sms"]
@@ -31,7 +31,7 @@ EventType = Literal[
 DncKind = Literal["email", "phone", "contact_id"]
 
 
-class SellerCompany(BaseModel):
+class UserCompany(BaseModel):
     name: str
     industry: Industry
     website: str
@@ -50,7 +50,7 @@ class SenderVoice(BaseModel):
 class User(BaseModel):
     user_id: str
     full_name: str
-    title: SellerTitle
+    title: UserTitle
     email: str
     outreach_email: str
     outreach_email_verified: bool = False
@@ -58,7 +58,7 @@ class User(BaseModel):
     linkedin_url: str | None = None
     locale: str = "en-IN"
     product_ids: list[str] = Field(default_factory=list)
-    company: SellerCompany
+    company: UserCompany
     voice: SenderVoice
 
 

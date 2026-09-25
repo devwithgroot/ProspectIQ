@@ -4,6 +4,7 @@ from typing import Any
 
 from app.excon import Excon
 from config.excon_schemas import (
+    Channel,
     Company,
     CompanyProfile,
     Contact,
@@ -12,8 +13,14 @@ from config.excon_schemas import (
     User,
 )
 
+CHANNELS = {"email", "linkedin", "whatsapp", "slack", "sms"}
 
-def draft_for_contact(payload: dict[str, Any], contact_id: str) -> dict[str, Any]:
+
+def draft_for_contact(
+    payload: dict[str, Any],
+    contact_id: str,
+    channel: str | None = None,
+) -> dict[str, Any]:
     user = User.model_validate(payload["user"])
     products = [
         Product.model_validate(item) for item in payload.get("products") or []
@@ -65,6 +72,12 @@ def draft_for_contact(payload: dict[str, Any], contact_id: str) -> dict[str, Any
         if product.product_id in company_profile.matched_product_ids
     ] or products
 
+    chosen: Channel | None = None
+    if channel:
+        if channel not in CHANNELS:
+            raise ValueError("Pick email, LinkedIn, Slack, WhatsApp, or SMS.")
+        chosen = channel  # type: ignore[assignment]
+
     batch = Excon(dry_run=True).prepare(
         user=user,
         company=company,
@@ -72,6 +85,7 @@ def draft_for_contact(payload: dict[str, Any], contact_id: str) -> dict[str, Any
         profiles=[contact_profile],
         contacts=[contact],
         products=matched,
+        channel=chosen,
     )
     package = batch.packages[0] if batch.packages else None
     drafts = package.drafts if package else []

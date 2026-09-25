@@ -1,9 +1,12 @@
 from collections.abc import Callable
 
 from agents.state import ResearchState
+from config.research_log import get_logger
 from config.schemas import ProspectReport, ProspectScore
 from llm.client import LLMClient
 from llm.json_util import extract_think, parse_model, reason_lines
+
+log = get_logger("report")
 
 
 class ReportAgent:
@@ -17,6 +20,7 @@ class ReportAgent:
         score: ProspectScore,
         on_progress: Callable[[str], None] | None = None,
     ) -> ProspectReport:
+        log.info("Report start company=%s", state.company_name)
         if on_progress is not None:
             on_progress(f"Writing your {state.company_name} briefing")
 
@@ -130,6 +134,7 @@ Return ONLY valid JSON.
                 on_progress(line)
 
         report_data = parse_model(ProspectReport, response)
+        log.info("Report ok company=%s", state.company_name)
 
         report_data.prospect_score = score.overall_score
         report_data.recommendation = score.recommendation

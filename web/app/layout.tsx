@@ -45,10 +45,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 Research
               </Link>
               <Link
-                href="/dashboard"
+                href="/companies"
                 className="rounded-lg px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                Dashboard
+                Companies
+              </Link>
+              <Link
+                href="/engagements"
+                className="rounded-lg px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Engagements
               </Link>
             </nav>
           </div>

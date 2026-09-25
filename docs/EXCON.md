@@ -2,7 +2,7 @@
 
 External connectors for engaging prospect contacts. Phase 3 of ProspectIQ.
 
-EXCON does not invent people. It takes a seller, the seller's products, a researched prospect, and that prospect's contact profiles, then prepares one message per eligible person.
+EXCON does not invent people. It takes a user, the user’s products, a researched prospect, and that prospect's contact profiles, then prepares one message per eligible person.
 
 ## API
 

@@ -1,9 +1,12 @@
 from collections.abc import Callable
 
 from agents.state import ResearchState
+from config.research_log import get_logger
 from config.schemas import ProspectScore, ScoringAssessment
 from llm.client import LLMClient
 from llm.json_util import reason_lines
+
+log = get_logger("scoring")
 
 
 class ScoringAgent:
@@ -21,6 +24,7 @@ class ScoringAgent:
         state: ResearchState,
         on_progress: Callable[[str], None] | None = None,
     ) -> ProspectScore:
+        log.info("Score start company=%s evidence=%s", state.company_name, len(state.evidence))
         if on_progress is not None:
             on_progress(
                 f"Rating how well {state.company_name} fits"
@@ -152,6 +156,12 @@ Calculate every score independently from the provided evidence.
             overall_score
         )
 
+        log.info(
+            "Score ok company=%s overall=%.1f recommendation=%s",
+            state.company_name,
+            overall_score,
+            recommendation,
+        )
         if on_progress is not None:
             on_progress(
                 f"{state.company_name}: {overall_score:.0f} · {recommendation}"

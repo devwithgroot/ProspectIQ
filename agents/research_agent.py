@@ -4,8 +4,11 @@ from tools.web_search import WebSearchTool
 from agents.state import ResearchState
 from llm.client import LLMClient
 from llm.json_util import extract_think, parse_model, reason_lines
+from config.research_log import get_logger
 from config.schemas import ResearchDecision
 from tools.evidence_evaluator import EvidenceEvaluator
+
+log = get_logger("research")
 
 
 def _one_line(text: str, limit: int = 140) -> str:
@@ -34,43 +37,32 @@ class ResearchAgent:
 
         while state.steps_taken < state.max_steps:
 
-            print(
-                f"\n[Research Agent] "
-                f"Step {state.steps_taken + 1}/{state.max_steps}"
+            log.info(
+                "Step %s/%s company=%s",
+                state.steps_taken + 1,
+                state.max_steps,
+                state.company_name,
             )
 
             note(f"Choosing what to look up next on {state.company_name}")
             decision = self.plan_next_action(state, on_progress=on_progress)
 
-            print(
-                f"[Research Agent] "
-                f"Action: {decision.action}"
-            )
-
-            print(
-                f"[Research Agent] "
-                f"Reasoning: {decision.reasoning}"
-            )
+            log.info("Action=%s query=%r", decision.action, decision.query)
+            log.info("Reasoning: %s", decision.reasoning)
             for line in reason_lines(decision.reasoning, limit=3):
                 note(line)
 
             if decision.action == "finish":
-                print("[Research Agent] Research complete.")
+                log.info("Research complete for %s", state.company_name)
                 note(f"We have enough on {state.company_name} to write a briefing")
                 break
 
             if decision.action != "search":
-                print(
-                    "[Research Agent] "
-                    f"Unknown action: {decision.action}"
-                )
+                log.warning("Unknown action: %s", decision.action)
                 break
 
             if not decision.query:
-                print(
-                    "[Research Agent] "
-                    "Search action requires a query."
-                )
+                log.warning("Search action missing query")
                 break
 
             query = decision.query
@@ -79,17 +71,11 @@ class ResearchAgent:
                 query,
                 state.queries,
             ):
-                print(
-                    "[Research Agent] "
-                    "Duplicate query detected. Finishing."
-                )
+                log.info("Duplicate query, finishing: %s", query)
                 note("We already checked that, moving on")
                 break
 
-            print(
-                f"[Research Agent] "
-                f"Searching: {query}"
-            )
+            log.info("Searching: %s", query)
             note(f"Looking up “{query}”")
 
             results = self.search_tool.execute(
@@ -118,10 +104,7 @@ class ResearchAgent:
             state.evidence.extend(evaluated_results)
             state.steps_taken += 1
 
-            print(
-                f"[Research Agent] "
-                f"Collected {len(results)} evidence items."
-            )
+            log.info("Collected %s evidence items", len(results))
             useful = [
                 item
                 for item in evaluated_results
@@ -142,10 +125,7 @@ class ResearchAgent:
             note(f"Seeing what matters for the {state.company_name} pitch")
 
         if state.steps_taken >= state.max_steps:
-            print(
-                "\n[Research Agent] "
-                "Maximum research steps reached."
-            )
+            log.info("Maximum research steps reached for %s", state.company_name)
             note(f"Wrapped up the {state.company_name} research")
 
         if state.evidence:
@@ -159,18 +139,12 @@ class ResearchAgent:
                 for e in state.evidence
             ) / len(state.evidence)
 
-            print(
-                "\n[Research Agent] Research quality:"
-            )
-
-            print(
-                f"[Research Agent] "
-                f"Average relevance: {average_relevance:.2f}"
-            )
-
-            print(
-                f"[Research Agent] "
-                f"Average quality: {average_quality:.2f}"
+            log.info(
+                "Quality company=%s relevance=%.2f quality=%.2f evidence=%s",
+                state.company_name,
+                average_relevance,
+                average_quality,
+                len(state.evidence),
             )
 
         return state
@@ -287,7 +261,7 @@ class ResearchAgent:
         try:
             results = self.search_tool.execute(query=query, max_results=3)
         except Exception as exc:
-            print(f"[Research Agent] Person search failed ({exc})")
+            log.exception("Person search failed for %s (%s)", full_name, exc)
             note(f"Couldn’t find public articles on {full_name}")
             return []
 

@@ -1,8 +1,11 @@
 from typing import Any
 
+from config.research_log import get_logger
 from config.schemas import PersonData
 from tools.base import BaseTool
 from tools.providers.prospeo import ProspeoProvider
+
+log = get_logger("people")
 
 
 class PeopleDataTool(BaseTool):
@@ -44,9 +47,22 @@ class PeopleDataTool(BaseTool):
                 "At least one search parameter is required."
             )
 
-        return self.provider.search_people(
-            company=company,
-            title=title,
-            location=location,
-            limit=limit,
+        log.info(
+            "People search company=%r title=%r location=%r limit=%s",
+            company,
+            title,
+            location,
+            limit,
         )
+        try:
+            people = self.provider.search_people(
+                company=company,
+                title=title,
+                location=location,
+                limit=limit,
+            )
+        except Exception:
+            log.exception("People search failed company=%r", company)
+            raise
+        log.info("People search ok count=%s", len(people))
+        return people

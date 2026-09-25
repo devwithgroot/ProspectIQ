@@ -9,11 +9,12 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from agents.contact_profile_agent import ContactProfileAgent
-from app.onboarding import OnboardingAgent
+from app.onboarding import OnboardingAgent, reuse_seller, same_website
 from app.orchestrator import ProspectIQ
 from app.people_mapper import person_to_contact
 from app.prospect_upload import UploadedProspect, load_prospect_csv
 from app.report_mapper import report_to_company
+from config.research_log import get_logger
 from tools.people_data import PeopleDataTool
 from config.excon_schemas import (
     Company,
@@ -27,6 +28,7 @@ from config.excon_schemas import (
 
 RUNS_DIR = Path(__file__).resolve().parent.parent / "data" / "runs"
 PEOPLE_PER_COMPANY = 3
+log = get_logger("pipeline")
 
 
 class PipelineResult(BaseModel):
@@ -49,7 +51,7 @@ class ResearchSkipped(Exception):
     pass
 
 
-class SellerPipeline:
+class UserPipeline:
     def __init__(self):
         self.analyzer = ProspectIQ()
         self.onboarder = OnboardingAgent()
@@ -67,10 +69,12 @@ class SellerPipeline:
         title: str,
         industry: str,
         outreach_email_verified: bool = True,
+        saved_user: User | None = None,
+        saved_products: list[Product] | None = None,
         on_progress: Callable[[str], None] | None = None,
     ) -> PipelineResult:
         def note(message: str) -> None:
-            print(message)
+            log.info(message)
             if on_progress is not None:
                 on_progress(message)
 
@@ -83,26 +87,46 @@ class SellerPipeline:
         contact_profiles: list[ContactProfile] = []
 
         try:
-            print("\n==============================")
-            print("SELLER ONBOARDING")
-            print("==============================")
+            if (
+                saved_user is not None
+                and saved_products
+                and same_website(saved_user.company.website, website)
+            ):
+                log.info("Reusing saved seller company %s", saved_user.company.name)
+                user, products = reuse_seller(
+                    saved_user,
+                    saved_products,
+                    full_name=full_name,
+                    phone=phone,
+                    email=email,
+                    outreach_email=outreach_email or email,
+                    website=website,
+                    title=title,
+                    industry=industry,
+                    outreach_email_verified=outreach_email_verified,
+                )
+                note(f"Using your saved {user.company.name} company")
+            else:
+                log.info("User onboarding")
+                user, products = self.onboarder.enroll(
+                    full_name=full_name,
+                    phone=phone,
+                    email=email,
+                    outreach_email=outreach_email or email,
+                    outreach_email_verified=outreach_email_verified,
+                    website=website,
+                    title=title,
+                    industry=industry,
+                    on_progress=note,
+                )
 
-            user, products = self.onboarder.enroll(
-                full_name=full_name,
-                phone=phone,
-                email=email,
-                outreach_email=outreach_email or email,
-                outreach_email_verified=outreach_email_verified,
-                website=website,
-                title=title,
-                industry=industry,
-                on_progress=note,
+            log.info(
+                "User %s <%s> company=%s products=%s",
+                user.full_name,
+                user.email,
+                user.company.name,
+                [product.name for product in products],
             )
-
-            print(f"Seller: {user.full_name} <{user.email}>")
-            print(f"Outreach from: {user.outreach_email}")
-            print(f"Company: {user.company.name}")
-            print(f"Products: {', '.join(product.name for product in products)}")
             note(
                 f"Got it — {user.company.name}"
                 + (
@@ -113,14 +137,17 @@ class SellerPipeline:
             )
 
             uploaded = load_prospect_csv(prospects_csv)
-            print(f"\nUploaded prospects: {len(uploaded)}")
+            log.info("Uploaded prospects: %s", [row.company_name for row in uploaded])
 
             product_names = ", ".join(product.name for product in products)
 
             for index, row in enumerate(uploaded, start=1):
-                print("\n==============================")
-                print(f"ORCHESTRATOR {index}/{len(uploaded)}: {row.company_name}")
-                print("==============================")
+                log.info(
+                    "Orchestrator %s/%s: %s",
+                    index,
+                    len(uploaded),
+                    row.company_name,
+                )
 
                 research_goal = (
                     f"Determine whether {row.company_name} is a high-value "
@@ -180,7 +207,7 @@ class SellerPipeline:
                 contact_profiles=contact_profiles,
             )
             saved = save_run(result)
-            print(f"\nSaved run to {saved}")
+            log.info("Saved run to %s", saved)
             return result
         except ResearchCancelled:
             if user is None or not companies:
@@ -195,7 +222,7 @@ class SellerPipeline:
                 contact_profiles=contact_profiles,
             )
             saved = save_run(result)
-            print(f"\nSaved partial run to {saved}")
+            log.info("Saved partial run to %s", saved)
             raise ResearchCancelled(result) from None
 
     def _find_people(
@@ -210,7 +237,7 @@ class SellerPipeline:
         try:
             people = PeopleDataTool().execute(company=company.name, limit=5)
         except Exception as exc:
-            print(f"[People] search failed ({exc})")
+            log.exception("People search failed for %s (%s)", company.name, exc)
             note(f"Couldn’t find people at {company.name} yet")
             return [], []
 
@@ -347,7 +374,7 @@ def main() -> None:
         "data/uploads/sample_prospects.csv",
     )
 
-    SellerPipeline().run(
+    UserPipeline().run(
         full_name=full_name,
         phone=phone,
         email=email,

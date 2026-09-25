@@ -16,30 +16,40 @@ from config.excon_schemas import (
     CompanyProfile,
     User,
 )
-from connectors.compliance import select_primary_channel, skip_reason
+from connectors.compliance import is_on_dnc, select_primary_channel, skip_reason
 from llm.client import LLMClient
 from llm.json_util import generate_model
 
 
 CHANNEL_GUIDANCE = {
     "email": (
-        "Write a subject and a 120-180 word email body. "
+        "Write a subject and a 120-180 word email. "
+        "Use real line breaks in the body: greeting on its own line, "
+        "then two short paragraphs separated by a blank line, "
+        "then a sign-off on its own line, then the sender name, "
+        "then the sender email. "
         "End with an unsubscribe line such as "
-        "'Reply STOP if you would prefer not to receive emails like this.'"
+        "'Reply STOP if you would prefer not to receive emails like this.' "
+        "Do not write the email as one paragraph."
     ),
     "linkedin": (
         "No subject. Keep the body around 300 characters. "
+        "Use real line breaks: greeting on its own line, then a short note. "
         "Conversational, not an email."
     ),
     "whatsapp": (
-        "No subject. Short mobile message. No formal sign-off spam."
+        "No subject. Short mobile message. "
+        "Greeting on its own line, then the note, blank line between thoughts. "
+        "No formal sign-off spam."
     ),
     "slack": (
-        "No subject. One to three sentences. No email tone."
+        "No subject. One to three sentences. "
+        "Greeting on its own line if you use one. No email tone."
     ),
     "sms": (
         "No subject. Tighter than WhatsApp. "
-        "End with 'Reply STOP to opt out.'"
+        "Greeting on its own line. "
+        "End with 'Reply STOP to opt out.' on its own line."
     ),
 }
 
@@ -57,23 +67,24 @@ class OutreachAgent:
         contact: Contact,
         profile: ContactProfile,
         dnc: list[DoNotContactEntry],
+        channel: Channel | None = None,
     ) -> OutreachPackage:
-        reason = skip_reason(contact, dnc)
-        if reason:
+        if is_on_dnc(contact, dnc):
             return OutreachPackage(
                 contact_id=contact.contact_id,
                 profile_id=profile.profile_id,
                 drafts=[],
-                skipped_reason=reason,
+                skipped_reason="Contact is on the do-not-contact list.",
             )
 
-        channel = select_primary_channel(contact, dnc)
-        if channel is None:
+        chosen = channel or select_primary_channel(contact, dnc)
+        if chosen is None:
             return OutreachPackage(
                 contact_id=contact.contact_id,
                 profile_id=profile.profile_id,
                 drafts=[],
-                skipped_reason="No eligible channel: missing handle or consent.",
+                skipped_reason=skip_reason(contact, dnc)
+                or "No eligible channel: missing handle or consent.",
             )
 
         content = self._draft_content(
@@ -83,7 +94,7 @@ class OutreachAgent:
             company_profile=company_profile,
             contact=contact,
             profile=profile,
-            channel=channel,
+            channel=chosen,
         )
 
         now = datetime.now(timezone.utc)
@@ -209,8 +220,116 @@ Return ONLY valid JSON:
         if channel != "email":
             content.subject = None
         elif not content.subject:
-            content.subject = (
-                f"{prospect.company_name} / {user.company.name}"
-            )
+            content.subject = f"{company.name} / {user.company.name}"
+        content.body = format_email_body(content.body)
 
         return content
+
+
+def format_email_body(body: str) -> str:
+    text = " ".join(body.replace("\r\n", "\n").split())
+    if not text:
+        return ""
+    if "\n\n" in body:
+        return body.replace("\r\n", "\n").strip()
+
+    parts: list[str] = []
+    greeting = ""
+    for prefix in ("Hi ", "Hello ", "Hey ", "Dear "):
+        if text.lower().startswith(prefix.lower()):
+            cut = -1
+            for index, char in enumerate(text[:90]):
+                if char in ",—–":
+                    cut = index
+                    break
+            if cut > 0:
+                greeting = text[:cut].rstrip() + ","
+                rest = text[cut + 1 :].strip()
+                text = rest[:1].upper() + rest[1:] if rest else ""
+            break
+    if greeting:
+        parts.append(greeting)
+
+    stop = ""
+    marker = "reply stop"
+    found = text.lower().find(marker)
+    if found >= 0:
+        stop = text[found:].strip()
+        text = text[:found].strip()
+
+    signoff = ""
+    for label in (
+        "Best regards",
+        "Kind regards",
+        "Warm regards",
+        "Regards",
+        "Thank you",
+        "Thanks",
+        "Sincerely",
+        "Best",
+    ):
+        idx = text.lower().rfind(label.lower())
+        if idx >= 0:
+            signoff = _format_signoff(text[idx:].strip())
+            text = text[:idx].strip()
+            break
+
+    parts.extend(_split_paragraphs(text))
+    if signoff:
+        parts.append(signoff)
+    if stop:
+        parts.append(stop)
+    return "\n\n".join(part for part in parts if part)
+
+
+def _format_signoff(block: str) -> str:
+    lines = [block]
+    for label in (
+        "Best regards",
+        "Kind regards",
+        "Warm regards",
+        "Regards",
+        "Thank you",
+        "Thanks",
+        "Sincerely",
+        "Best",
+    ):
+        if block.lower().startswith(label.lower()):
+            rest = block[len(label) :].lstrip(" ,")
+            email = ""
+            for token in rest.split():
+                if "@" in token:
+                    email = token.strip(" .,;")
+                    rest = rest.replace(token, "").strip(" .,;")
+                    break
+            lines = [f"{label},"]
+            if rest:
+                lines.append(rest)
+            if email:
+                lines.append(email)
+            break
+    return "\n".join(lines)
+
+
+def _split_paragraphs(text: str) -> list[str]:
+    if not text:
+        return []
+    sentences: list[str] = []
+    current = ""
+    for char in text:
+        current += char
+        if char in ".!?" and current.strip():
+            sentences.append(current.strip())
+            current = ""
+    if current.strip():
+        sentences.append(current.strip())
+    chunks: list[str] = []
+    buffer: list[str] = []
+    for sentence in sentences:
+        buffer.append(sentence)
+        if len(" ".join(buffer)) >= 160:
+            chunks.append(" ".join(buffer))
+            buffer = []
+    if buffer:
+        chunks.append(" ".join(buffer))
+    return chunks

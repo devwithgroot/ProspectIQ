@@ -11,8 +11,9 @@ else
 fi
 
 export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONUNBUFFERED=1
 
-"$PYTHON" -m uvicorn app.server:app --host 127.0.0.1 --port 8000 &
+"$PYTHON" -m uvicorn app.server:app --host 127.0.0.1 --port 8000 --log-level info &
 API_PID=$!
 trap 'kill "$API_PID" 2>/dev/null || true' EXIT
 

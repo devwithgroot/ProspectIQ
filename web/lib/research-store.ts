@@ -5,7 +5,14 @@ import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 
 import { bundledCatalog, isAllowedTitle, type Catalog } from "@/lib/catalog"
-import type { ResearchJob, ResearchResult, StagingPreview } from "@/lib/types"
+import { emptyBook, mergeBook } from "@/lib/book"
+import type {
+  EngagementDraft,
+  ResearchJob,
+  ResearchResult,
+  SellerBook,
+  StagingPreview,
+} from "@/lib/types"
 import { userNotice, type UserNotice } from "@/lib/user-message"
 import {
   localPhoneDigits,
@@ -29,6 +36,8 @@ export type ResearchStore = {
   jobId: string | null
   job: ResearchJob | null
   result: ResearchResult | null
+  book: SellerBook
+  engagements: Record<string, EngagementDraft>
   catalog: Catalog
   fullName: string
   phone: string
@@ -53,6 +62,8 @@ export type ResearchStore = {
   setJobId: (jobId: string | null) => void
   setJob: (job: ResearchJob | null) => void
   setResult: (result: ResearchResult | null) => void
+  setEngagement: (draft: EngagementDraft) => void
+  clearEngagements: () => void
   setCatalog: (catalog: Catalog) => void
   setFullName: (fullName: string) => void
   setPhone: (phone: string) => void
@@ -81,6 +92,8 @@ type PersistedDraft = Pick<
   | "staging"
   | "prospectsMode"
   | "result"
+  | "book"
+  | "engagements"
   | "jobId"
 >
 
@@ -100,6 +113,8 @@ export const useResearchStore = create<ResearchStore>()(
       jobId: null,
       job: null,
       result: null,
+      book: emptyBook(),
+      engagements: {},
       catalog: bundledCatalog,
       fullName: "",
       phone: "",
@@ -113,8 +128,16 @@ export const useResearchStore = create<ResearchStore>()(
       previewBusy: false,
       prospectsMode: "grid",
 
-      showError: (raw) => set({ notice: userNotice(raw) }),
-      showOtpError: (raw) => set({ otpError: userNotice(raw).message }),
+      showError: (raw) => {
+        const notice = userNotice(raw)
+        console.error("[ProspectIQ]", notice.title, notice.message, raw)
+        set({ notice })
+      },
+      showOtpError: (raw) => {
+        const notice = userNotice(raw)
+        console.error("[ProspectIQ] OTP", notice.message, raw)
+        set({ otpError: notice.message })
+      },
       clearMessages: () => set({ notice: null, otpError: null }),
 
       validateStep: (index) => {
@@ -144,7 +167,19 @@ export const useResearchStore = create<ResearchStore>()(
       setPending: (pending) => set({ pending }),
       setJobId: (jobId) => set({ jobId }),
       setJob: (job) => set({ job }),
-      setResult: (result) => set({ result }),
+      setResult: (result) =>
+        set((state) => ({
+          result,
+          book: result ? mergeBook(state.book, result) : state.book,
+        })),
+      setEngagement: (draft) =>
+        set((state) => ({
+          engagements: {
+            ...state.engagements,
+            [`${draft.contact_id}:${draft.channel}`]: draft,
+          },
+        })),
+      clearEngagements: () => set({ engagements: {} }),
       setCatalog: (catalog) => set({ catalog }),
       setFullName: (fullName) => set({ fullName: sanitizeName(fullName) }),
       setPhone: (phone) => set({ phone: localPhoneDigits(phone) }),
@@ -203,6 +238,8 @@ export const useResearchStore = create<ResearchStore>()(
         staging: state.staging,
         prospectsMode: state.prospectsMode,
         result: state.result,
+        book: state.book,
+        engagements: state.engagements,
         jobId: state.jobId,
       }),
       merge: (persisted, current) => {
@@ -213,6 +250,13 @@ export const useResearchStore = create<ResearchStore>()(
           ...saved,
           step: clampStep(saved.step ?? current.step),
           file: null,
+          book:
+            saved.book?.companies.length
+              ? saved.book
+              : saved.result
+                ? mergeBook(saved.book ?? emptyBook(), saved.result)
+                : saved.book ?? emptyBook(),
+          engagements: saved.engagements ?? {},
           jobId,
           job: null,
           pending: Boolean(jobId),

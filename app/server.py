@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import logging
+import json
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Thread
 
@@ -9,24 +10,29 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.email_verify import otp_required, verifier
+from app.email_verify import is_email, otp_required, verifier
 from app.outreach import draft_for_contact
-from app.pipeline import ResearchCancelled, ResearchSkipped, SellerPipeline
-from app.prospect_upload import MAX_UPLOAD_BYTES, load_prospect_csv
+from app.pipeline import ResearchCancelled, ResearchSkipped, UserPipeline
+from config.excon_schemas import Product, User
+from app.prospect_upload import load_prospect_csv, preview_prospect_csv, upload_too_large
 from app import research_jobs
-from app.ui_logic import (
-    invalid_catalog_selection,
-    invalid_email_fields,
-    missing_required_fields,
-    normalize_url,
-    preview_prospect_csv,
-    upload_too_large,
-)
-from config.catalog import catalog_payload
+from config.catalog import catalog_error, catalog_payload
+from config.research_log import configure_logging, get_logger, quiet_access_logs
 from data.loader import load_mock_bundle
 
+configure_logging()
+log = get_logger("api")
 
-app = FastAPI(title="ProspectIQ API")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    configure_logging()
+    quiet_access_logs()
+    log.info("API ready — research logs print in this terminal")
+    yield
+
+
+app = FastAPI(title="ProspectIQ API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -52,6 +58,51 @@ class OutreachDraftRequest(BaseModel):
     contact_id: str
     job_id: str | None = None
     result: dict | None = None
+    channel: str | None = None
+
+
+def normalize_url(url: str) -> str:
+    url = url.strip()
+    if url and not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    return url
+
+
+def missing_required_fields(
+    *,
+    full_name: str,
+    phone: str,
+    email: str,
+    outreach_email: str,
+    website: str,
+    title: str,
+    industry: str,
+    has_csv: bool,
+) -> list[str]:
+    missing = [
+        label
+        for label, value in (
+            ("Full name", full_name),
+            ("Phone", phone),
+            ("Email", email),
+            ("Outreach email", outreach_email),
+            ("Industry", industry),
+            ("Title", title),
+            ("Company website", website),
+        )
+        if not value.strip()
+    ]
+    if not has_csv:
+        missing.append("Prospect CSV")
+    return missing
+
+
+def invalid_email_fields(email: str, outreach_email: str) -> str | None:
+    if email.strip() and not is_email(email):
+        return "Please enter a valid work email."
+    if outreach_email.strip() and not is_email(outreach_email):
+        return "Please enter a valid outreach email."
+    return None
 
 
 @app.get("/health")
@@ -145,6 +196,7 @@ async def research(
     title: str = Form(...),
     industry: str = Form(...),
     prospects: UploadFile = File(...),
+    seller: str = Form(""),
 ):
     website = normalize_url(website)
     outreach = (outreach_email or email).strip()
@@ -168,7 +220,7 @@ async def research(
     if email_problem:
         raise HTTPException(status_code=400, detail=email_problem)
 
-    catalog_problem = invalid_catalog_selection(title=title, industry=industry)
+    catalog_problem = catalog_error(title=title, industry=industry)
     if catalog_problem:
         raise HTTPException(status_code=400, detail=catalog_problem)
 
@@ -195,6 +247,13 @@ async def research(
 
     companies = [row.company_name for row in staged]
     job = research_jobs.jobs.start(companies)
+    log.info(
+        "Research job %s started seller=%s website=%s companies=%s",
+        job["job_id"],
+        email.strip(),
+        website,
+        companies,
+    )
     job_csv = research_jobs.jobs.directory / f"{job['job_id']}.csv"
     job_csv.write_bytes(payload)
     csv_path.unlink(missing_ok=True)
@@ -211,6 +270,7 @@ async def research(
             "title": title.strip(),
             "industry": industry.strip(),
             "prospects_csv": job_csv,
+            "seller_json": seller,
         },
         daemon=True,
     )
@@ -241,7 +301,7 @@ def outreach_draft(payload: OutreachDraftRequest) -> dict:
             detail="Research results are required to write a draft.",
         )
     try:
-        return draft_for_contact(result, payload.contact_id)
+        return draft_for_contact(result, payload.contact_id, payload.channel)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -293,6 +353,7 @@ def _run_research_job(
     title: str,
     industry: str,
     prospects_csv: Path,
+    seller_json: str = "",
 ) -> None:
     def on_progress(message: str) -> None:
         research_jobs.jobs.progress(job_id, message)
@@ -302,8 +363,10 @@ def _run_research_job(
         if action == "skip":
             raise ResearchSkipped()
 
+    saved_user, saved_products = _saved_seller(seller_json)
+    log.info("Research job %s running", job_id)
     try:
-        result = SellerPipeline().run(
+        result = UserPipeline().run(
             full_name=full_name,
             phone=phone,
             email=email,
@@ -313,21 +376,49 @@ def _run_research_job(
             prospects_csv=prospects_csv,
             title=title,
             industry=industry,
+            saved_user=saved_user,
+            saved_products=saved_products,
             on_progress=on_progress,
         )
         research_jobs.jobs.complete(job_id, result.model_dump(mode="json"))
+        log.info("Research job %s complete companies=%s", job_id, len(result.companies))
     except ResearchCancelled as exc:
         payload = (
             exc.result.model_dump(mode="json") if exc.result is not None else None
         )
         research_jobs.jobs.cancel(job_id, payload)
+        log.info("Research job %s cancelled", job_id)
     except ValueError as exc:
-        research_jobs.jobs.fail(job_id, str(exc))
-    except Exception:
-        logging.exception("Research job %s failed", job_id)
+        log.exception("Research job %s rejected: %s", job_id, exc)
+        research_jobs.jobs.fail(
+            job_id,
+            str(exc),
+            detail=f"{type(exc).__name__}: {exc}",
+        )
+    except Exception as exc:
+        log.exception("Research job %s failed", job_id)
         research_jobs.jobs.fail(
             job_id,
             "We couldn’t finish research. Start it again from your list.",
+            detail=f"{type(exc).__name__}: {exc}",
         )
     finally:
         prospects_csv.unlink(missing_ok=True)
+
+
+def _saved_seller(raw: str) -> tuple[User | None, list[Product]]:
+    text = (raw or "").strip()
+    if not text:
+        return None, []
+    try:
+        payload = json.loads(text)
+        user = User.model_validate(payload["user"])
+        products = [
+            Product.model_validate(item)
+            for item in payload.get("products") or []
+        ]
+    except Exception:
+        return None, []
+    if not products:
+        return None, []
+    return user, products

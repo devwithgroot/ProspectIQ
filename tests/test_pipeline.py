@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.pipeline import SellerPipeline
+from app.pipeline import UserPipeline
 
 
 def main():
@@ -8,7 +8,7 @@ def main():
     print("PIPELINE ORCHESTRATOR TEST")
     print("==============================")
 
-    result = SellerPipeline().run(
+    result = UserPipeline().run(
         full_name="Priya Mehta",
         phone="+919845512210",
         email="priya.mehta@nexusflow.io",

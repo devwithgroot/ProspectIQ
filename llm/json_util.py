@@ -5,6 +5,10 @@ from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from config.research_log import get_logger
+
+log = get_logger("json")
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -101,6 +105,12 @@ def generate_model(
                 "Return ONLY valid JSON. No markdown. No extra text."
             )
 
+        log.info(
+            "Parse %s attempt=%s tokens=%s",
+            model_cls.__name__,
+            attempt + 1,
+            max_tokens,
+        )
         response = llm.generate(
             prompt=retry_prompt,
             temperature=temperature,
@@ -108,9 +118,18 @@ def generate_model(
         )
 
         try:
-            return parse_model(model_cls, response)
+            parsed = parse_model(model_cls, response)
         except (ValidationError, ValueError) as exc:
             last_error = exc
+            log.warning(
+                "Parse %s failed attempt=%s: %s",
+                model_cls.__name__,
+                attempt + 1,
+                exc,
+            )
+            continue
+        log.info("Parse %s ok", model_cls.__name__)
+        return parsed
 
     raise ValueError(
         f"LLM did not return valid {model_cls.__name__} JSON: {last_error}"

@@ -6,9 +6,27 @@ from config.schemas import PersonData
 from app.report_mapper import slug
 
 
+_TITLE_ALIASES = (
+    ("co-fundadora", "Co-founder"),
+    ("co-fundador", "Co-founder"),
+    ("cofundadora", "Co-founder"),
+    ("cofundador", "Co-founder"),
+    ("fundadora", "Founder"),
+    ("fundador", "Founder"),
+    ("fondatrice", "Founder"),
+    ("fondateur", "Founder"),
+    ("fondatore", "Founder"),
+    ("gründerin", "Founder"),
+    ("gründer", "Founder"),
+)
+
 _BUYER_MARKERS = (
     "ceo",
     "founder",
+    "fundador",
+    "fondateur",
+    "fondatore",
+    "gründer",
     "owner",
     "president",
     "managing director",
@@ -26,6 +44,23 @@ _CHAMPION_MARKERS = (
     "digital",
     "innovation",
 )
+
+
+def normalize_title(title: str) -> str:
+    text = title.strip()
+    if not text:
+        return "Unknown role"
+    lowered = text.casefold()
+    for source, english in _TITLE_ALIASES:
+        if lowered == source:
+            return english
+    updated = text
+    for source, english in _TITLE_ALIASES:
+        start = updated.casefold().find(source)
+        if start < 0:
+            continue
+        updated = updated[:start] + english + updated[start + len(source) :]
+    return updated
 
 
 def person_display_name(person: PersonData) -> str:
@@ -48,7 +83,7 @@ def person_to_contact(person: PersonData, company_id: str) -> Contact | None:
     if not full_name:
         return None
 
-    title = (person.title or "Unknown role").strip()
+    title = normalize_title(person.title or "")
     email = (person.email or "").strip() or None
     phone = (person.mobile or "").strip() or None
     linkedin = (person.linkedin_url or "").strip() or None

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from config.catalog import (
     Industry,
-    SellerTitle,
+    UserTitle,
     catalog_error,
     catalog_payload,
     parse_industry,
@@ -24,10 +24,10 @@ def main():
     ) == (root / "web/lib/catalog-data.json").read_text(encoding="utf-8")
     print("frontend catalog copy matches config/catalog.json")
 
-    labels = [title.value for title in SellerTitle]
+    labels = [title.value for title in UserTitle]
     assert len(labels) == len(set(labels)), "title labels must be unique"
     assert len(list(Industry)) >= 20
-    print(f"{len(list(Industry))} industries, {len(list(SellerTitle))} titles")
+    print(f"{len(list(Industry))} industries, {len(list(UserTitle))} titles")
 
     payload = catalog_payload()
     assert payload["industries"]
@@ -36,7 +36,7 @@ def main():
     assert parse_industry("software_saas") is software
 
     ae = parse_title("Account Executive")
-    assert ae is SellerTitle.account_executive
+    assert ae is UserTitle.account_executive
     assert title_allowed(ae, software)
     assert title_allowed(ae, parse_industry("Industrial software"))
     print("common sales titles are available across industries")
@@ -60,9 +60,9 @@ def main():
     print("pharma, banking, and FMCG title sets look right")
 
     user = load_mock_bundle().user
-    assert user.title is SellerTitle.account_executive
+    assert user.title is UserTitle.account_executive
     assert user.company.industry is Industry.industrial_software
-    print("mock seller uses catalog enums")
+    print("mock user uses catalog enums")
 
     print("\nCATALOG ENUM TEST PASSED")
 

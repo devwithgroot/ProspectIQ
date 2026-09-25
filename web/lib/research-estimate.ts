@@ -11,16 +11,21 @@ export type ResearchEstimate = {
   typicalMinutes: number
 }
 
-export function estimateResearch(companyCount: number): ResearchEstimate {
+export function estimateResearch(
+  companyCount: number,
+  options: { skipOnboard?: boolean } = {},
+): ResearchEstimate {
   const count = Math.max(1, companyCount)
+  const onboardLow = options.skipOnboard ? 0 : ONBOARD_LOW_MINUTES
+  const onboardHigh = options.skipOnboard ? 0 : ONBOARD_HIGH_MINUTES
   const lowMinutes = Math.max(
-    2,
-    Math.round(ONBOARD_LOW_MINUTES + COMPANY_LOW_MINUTES * count)
+    options.skipOnboard ? 1 : 2,
+    Math.round(onboardLow + COMPANY_LOW_MINUTES * count)
   )
   const highMinutes =
     Math.max(
       lowMinutes + 1,
-      Math.round(ONBOARD_HIGH_MINUTES + COMPANY_HIGH_MINUTES * count)
+      Math.round(onboardHigh + COMPANY_HIGH_MINUTES * count)
     ) + TIME_BUFFER_MINUTES
   return {
     companyCount: count,

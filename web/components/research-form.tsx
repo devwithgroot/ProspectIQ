@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import Link from "next/link";
 import { CheckIcon, FileSpreadsheetIcon, UploadIcon } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -33,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { canReuseSeller, isKnownCompany, normalizeCompanyName } from "@/lib/book";
 import { API_URL } from "@/lib/api";
 import {
   bundledCatalog,
@@ -63,7 +65,6 @@ import type {
   CompanyProfile,
   Contact,
   ContactProfile,
-  OutreachDraftResponse,
   ResearchJob,
   ResearchResult,
   StagedProspect,
@@ -144,6 +145,7 @@ export function ResearchForm() {
     jobId,
     job,
     result,
+    book,
     catalog,
     fullName,
     phone,
@@ -176,7 +178,6 @@ export function ResearchForm() {
     setStaging,
     setPreviewBusy,
     setProspectsMode,
-    startOver,
   } = store;
   const hydrated = useResearchHydrated();
   const [youShowErrors, setYouShowErrors] = useState(false);
@@ -248,6 +249,13 @@ export function ResearchForm() {
             return;
           }
           if (next.status === "error" || next.status === "lost") {
+            console.error("[ProspectIQ] research job ended", {
+              job_id: next.job_id,
+              status: next.status,
+              error: next.error,
+              error_detail: next.error_detail,
+              current: next.current,
+            });
             showError(next.error || "We couldn’t finish research.");
             setJobId(null);
             setJob(null);
@@ -256,6 +264,7 @@ export function ResearchForm() {
           }
         } catch (err) {
           failures += 1;
+          console.warn("[ProspectIQ] research poll failed", failures, err);
           if (failures >= 8) {
             showError(err);
             return;
@@ -439,11 +448,31 @@ export function ResearchForm() {
     if (companies.length === 0) {
       return;
     }
+    const fresh = companies.filter(
+      (row) => !isKnownCompany(book, row.company_name),
+    );
+    const known = companies.filter((row) =>
+      isKnownCompany(book, row.company_name),
+    );
+    if (fresh.length === 0) {
+      setNotice({
+        title: "Already in Companies",
+        message:
+          "Those companies already have briefings. Open Companies to see people and engage.",
+      });
+      return;
+    }
 
     clearMessages();
     setResult(null);
     setJob(null);
     setPending(true);
+    if (known.length) {
+      setNotice({
+        title: "Skipping saved companies",
+        message: `${known.map((row) => row.company_name).join(", ")} already researched. Looking up the rest.`,
+      });
+    }
 
     const data = new FormData();
     data.set("full_name", fullName.trim());
@@ -453,12 +482,18 @@ export function ResearchForm() {
     data.set("industry", industry);
     data.set("title", title);
     data.set("website", website.trim());
+    if (canReuseSeller(book, website) && book.user) {
+      data.set(
+        "seller",
+        JSON.stringify({ user: book.user, products: book.products }),
+      );
+    }
     data.set(
       "prospects",
       fileFromStaging({
         file_name: staging?.file_name || "prospects.csv",
-        count: companies.length,
-        companies,
+        count: fresh.length,
+        companies: fresh,
       }),
     );
 
@@ -487,10 +522,19 @@ export function ResearchForm() {
     current.id === "prospects" && filledCompanies.length
       ? "Review this list"
       : current.heading;
-  const estimate = estimateResearch(filledCompanies.length || 1);
+  const freshCompanies = filledCompanies.filter(
+    (row) => !isKnownCompany(book, row.company_name),
+  );
+  const reuseSeller = canReuseSeller(book, website);
+  const estimate = estimateResearch(freshCompanies.length || 1, {
+    skipOnboard: reuseSeller,
+  });
+  const alreadyCount = filledCompanies.length - freshCompanies.length;
   const description =
     current.id === "prospects" && filledCompanies.length
-      ? `${filledCompanies.length} compan${filledCompanies.length === 1 ? "y" : "ies"}${staging?.file_name && staging.file_name !== "prospects.csv" ? ` from ${staging.file_name}` : ""}. Research usually takes ${formatEstimateRange(estimate)}, including a little extra time.`
+      ? freshCompanies.length === 0
+        ? `${filledCompanies.length} already in Companies. No need to research them again.`
+        : `${freshCompanies.length} new compan${freshCompanies.length === 1 ? "y" : "ies"}${alreadyCount ? `, ${alreadyCount} already saved` : ""}${staging?.file_name && staging.file_name !== "prospects.csv" ? ` from ${staging.file_name}` : ""}. Research usually takes ${formatEstimateRange(estimate)}.`
       : current.description;
 
   if (!hydrated) {
@@ -523,12 +567,7 @@ export function ResearchForm() {
       </div>
 
       {result && !pending ? (
-        <Results
-          result={result}
-          jobId={jobId}
-          onChange={setResult}
-          onStartOver={startOver}
-        />
+        <Results result={result} onChange={setResult} />
       ) : pending ? (
         <Card>
           <CardContent className="pt-6">
@@ -537,6 +576,7 @@ export function ResearchForm() {
                 job?.companies ?? filledCompanies.map((row) => row.company_name)
               }
               job={job}
+              skipOnboard={canReuseSeller(book, website)}
             />
           </CardContent>
         </Card>
@@ -583,6 +623,12 @@ export function ResearchForm() {
                   <CompanySection
                     website={website}
                     suggested={suggestedWebsite}
+                    savedName={
+                      reuseSeller ? book.user?.company.name ?? null : null
+                    }
+                    savedDescription={
+                      reuseSeller ? book.user?.company.description ?? null : null
+                    }
                     onWebsite={setWebsite}
                     onUseSuggested={applySuggestedWebsite}
                     onContinue={() => void goNext()}
@@ -608,6 +654,7 @@ export function ResearchForm() {
                       setStep(0);
                     }}
                     onStagingChange={setStaging}
+                    knownNames={book.companies.map((item) => item.name)}
                   />
                 ) : null}
 
@@ -1160,12 +1207,16 @@ function RoleSection({
 function CompanySection({
   website,
   suggested,
+  savedName,
+  savedDescription,
   onWebsite,
   onUseSuggested,
   onContinue,
 }: {
   website: string;
   suggested: string | null;
+  savedName: string | null;
+  savedDescription: string | null;
   onWebsite: (value: string) => void;
   onUseSuggested: () => void;
   onContinue: () => void;
@@ -1191,6 +1242,18 @@ function CompanySection({
         >
           Use {suggested}
         </button>
+      ) : null}
+      {savedName ? (
+        <div className="rounded-xl bg-muted/50 px-3 py-2 text-sm leading-6">
+          <p className="font-medium">Saved: {savedName}</p>
+          {savedDescription ? (
+            <p className="text-muted-foreground">{savedDescription}</p>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            We’ll use this instead of reading the site again. Change the
+            website if this is a different company.
+          </p>
+        </div>
       ) : null}
     </div>
   );
@@ -1263,7 +1326,7 @@ function focusSheetCell(row: number, col: number) {
     ?.focus();
 }
 
-function SellerSummary({
+function UserSummary({
   summary,
   onEditDetails,
 }: {
@@ -1300,6 +1363,7 @@ function ProspectsSection({
   previewBusy,
   mode,
   summary,
+  knownNames,
   onMode,
   onFile,
   onEditDetails,
@@ -1316,6 +1380,7 @@ function ProspectsSection({
     title: string;
     website: string;
   };
+  knownNames: string[];
   onMode: (mode: "grid" | "upload") => void;
   onFile: (file: File | null) => void;
   onEditDetails: () => void;
@@ -1340,7 +1405,7 @@ function ProspectsSection({
   if (mode === "upload") {
     return (
       <div className="space-y-4">
-        <SellerSummary summary={summary} onEditDetails={onEditDetails} />
+        <UserSummary summary={summary} onEditDetails={onEditDetails} />
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="prospects">Upload a spreadsheet</Label>
           <Button
@@ -1411,7 +1476,7 @@ function ProspectsSection({
 
   return (
     <div className="space-y-4">
-      <SellerSummary summary={summary} onEditDetails={onEditDetails} />
+      <UserSummary summary={summary} onEditDetails={onEditDetails} />
       <div className="flex items-center justify-between gap-3">
         <Label>Company list</Label>
         <Button
@@ -1439,7 +1504,18 @@ function ProspectsSection({
             {sheet.companies.map((row, rowIndex) => (
               <TableRow key={row.id}>
                 <TableCell className="text-xs text-muted-foreground">
-                  {rowIndex + 1}
+                  <div className="flex flex-col gap-0.5">
+                    <span>{rowIndex + 1}</span>
+                    {knownNames.some(
+                      (name) =>
+                        normalizeCompanyName(name) ===
+                        normalizeCompanyName(row.company_name),
+                    ) ? (
+                      <span className="text-[10px] uppercase tracking-wide">
+                        Saved
+                      </span>
+                    ) : null}
+                  </div>
                 </TableCell>
                 {[0, 1, 2].map((col) => (
                   <TableCell key={col} className="p-0">
@@ -1619,12 +1695,14 @@ function ProgressLine({
 function ResearchingState({
   companies,
   job,
+  skipOnboard = false,
 }: {
   companies: string[];
   job: ResearchJob | null;
+  skipOnboard?: boolean;
 }) {
   const setJob = useResearchStore((state) => state.setJob);
-  const estimate = estimateResearch(companies.length || 1);
+  const estimate = estimateResearch(companies.length || 1, { skipOnboard });
   const [now, setNow] = useState(Date.now());
   const [localStart] = useState(() => Date.now());
   const [control, setControl] = useState<"skip" | "stop" | null>(null);
@@ -1815,48 +1893,10 @@ function Field({
 function PeopleList({
   contacts,
   profiles,
-  jobId,
-  result,
 }: {
   contacts: Contact[];
   profiles: ContactProfile[];
-  jobId: string | null;
-  result: ResearchResult;
 }) {
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<OutreachDraftResponse | null>(null);
-
-  async function writeDraft(contact: Contact) {
-    setBusyId(contact.contact_id);
-    try {
-      const response = await fetch(`${API_URL}/api/outreach/draft`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_id: contact.contact_id,
-          job_id: jobId,
-          result,
-        }),
-      });
-      const body = (await response.json().catch(() => ({}))) as
-        | OutreachDraftResponse
-        | { detail?: string };
-      if (!response.ok) {
-        const detail =
-          typeof body === "object" && body && "detail" in body
-            ? String(body.detail)
-            : "We couldn’t write that draft.";
-        useResearchStore.getState().showError(detail);
-        return;
-      }
-      setDraft(body as OutreachDraftResponse);
-    } catch (error) {
-      useResearchStore.getState().showError(error);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
   if (contacts.length === 0) {
     return (
       <p className="text-muted-foreground">
@@ -1864,8 +1904,6 @@ function PeopleList({
       </p>
     );
   }
-
-  const shown = draft?.drafts[0];
 
   return (
     <div>
@@ -1877,82 +1915,23 @@ function PeopleList({
           );
           return (
             <li key={contact.contact_id} className="text-muted-foreground">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-foreground">
-                    {contact.full_name}
-                    {contact.title ? ` · ${contact.title}` : ""}
-                  </p>
-                  {profile?.bio ? <p>{profile.bio}</p> : null}
-                  {profile?.recommended_approach ? (
-                    <p>
-                      <span className="font-medium text-foreground">
-                        Approach.{" "}
-                      </span>
-                      {profile.recommended_approach}
-                    </p>
-                  ) : null}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  disabled={busyId === contact.contact_id}
-                  onClick={() => writeDraft(contact)}
-                >
-                  {busyId === contact.contact_id ? "Writing…" : "Write draft"}
-                </Button>
-              </div>
+              <p className="font-medium text-foreground">
+                {contact.full_name}
+                {contact.title ? ` · ${contact.title}` : ""}
+              </p>
+              {profile?.bio ? <p>{profile.bio}</p> : null}
+              {profile?.recommended_approach ? (
+                <p>
+                  <span className="font-medium text-foreground">
+                    Approach.{" "}
+                  </span>
+                  {profile.recommended_approach}
+                </p>
+              ) : null}
             </li>
           );
         })}
       </ul>
-
-      <Dialog
-        open={draft !== null}
-        onOpenChange={(open) => !open && setDraft(null)}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              Draft for {draft?.contact_name ?? "this person"}
-            </DialogTitle>
-            <DialogDescription>
-              {draft?.skipped_reason
-                ? draft.skipped_reason
-                : "Dry-run only. Nothing is sent."}
-            </DialogDescription>
-          </DialogHeader>
-          {shown ? (
-            <div className="space-y-3 text-sm">
-              <p>
-                <span className="font-medium">Channel. </span>
-                {shown.channel}
-              </p>
-              {shown.subject ? (
-                <p>
-                  <span className="font-medium">Subject. </span>
-                  {shown.subject}
-                </p>
-              ) : null}
-              <p className="whitespace-pre-wrap leading-6">{shown.body}</p>
-              {shown.rationale ? (
-                <p className="text-muted-foreground">{shown.rationale}</p>
-              ) : null}
-            </div>
-          ) : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDraft(null)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
@@ -1983,14 +1962,10 @@ function briefingDraftFrom(
 
 function Results({
   result,
-  jobId,
   onChange,
-  onStartOver,
 }: {
   result: ResearchResult;
-  jobId: string | null;
   onChange: (next: ResearchResult) => void;
-  onStartOver: () => void;
 }) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const companies = result.companies ?? [];
@@ -2009,8 +1984,8 @@ function Results({
         <AlertDescription>
           {companies.length} compan
           {companies.length === 1 ? "y" : "ies"} researched for{" "}
-          {result.user.full_name}. Edit anything that looks off before you keep
-          it.
+          {result.user.full_name}. Edit anything that looks off, then open
+          Companies to see people and engage.
         </AlertDescription>
       </Alert>
 
@@ -2106,8 +2081,6 @@ function Results({
                   profiles={(result.contact_profiles ?? []).filter(
                     (item) => item.company_id === profile.company_id,
                   )}
-                  jobId={jobId}
-                  result={result}
                 />
               </CardContent>
             </Card>
@@ -2116,9 +2089,9 @@ function Results({
       </div>
 
       <div className="flex justify-end">
-        <Button type="button" variant="outline" onClick={onStartOver}>
-          Research another list
-        </Button>
+        <Link href="/companies" className={buttonVariants()}>
+          Open companies
+        </Link>
       </div>
 
       <BriefingEditDialog

@@ -1,6 +1,6 @@
-# Seller pipeline
+# User pipeline
 
-The current application entry. A seller enters identity + a company website, uploads prospect companies, and `ProspectIQ.analyze()` runs for each row. No stand-ins: onboarding uses the website reader + MLX, research uses Tavily + MLX.
+The current application entry. A user enters identity + a company website, uploads prospect companies, and `ProspectIQ.analyze()` runs for each row. No stand-ins: onboarding uses the website reader + MLX, research uses Tavily + MLX.
 
 ## Flow
 
@@ -81,15 +81,15 @@ company_name,website,notes
 
 ## What each step calls
 
-1. **Onboarding** (`app/onboarding.py`) — fetch the seller site, ask MLX for company name/description + products, then attach the seller-selected `Industry` and `SellerTitle`.
+1. **Onboarding** (`app/onboarding.py`) — fetch the user’s site, ask MLX for company name/description + products, then attach the user-selected `Industry` and `UserTitle`.
 2. **Upload** (`app/prospect_upload.py`) — parse the CSV.
-3. **Orchestrator** (`app/orchestrator.py`) — for every uploaded company, run research → score → report against that seller's products.
+3. **Orchestrator** (`app/orchestrator.py`) — for every uploaded company, run research → score → report against that user’s products.
 4. **Map** (`app/report_mapper.py`) — `ProspectReport` → `Prospect` (score, signals, risks, sources, `matched_product_ids`).
 5. **Save** — JSON under `data/runs/`. That folder is gitignored.
 
 ## Live check
 
-`python -m tests.test_pipeline` is this path end to end. A run against Zoho as seller and the sample CSV produced:
+`python -m tests.test_pipeline` is this path end to end. A run against Zoho as the user company and the sample CSV produced:
 
 | Prospect | Score | Recommendation |
 |---|---|---|

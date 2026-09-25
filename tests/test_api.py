@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.email_verify import verifier
 from app.prospect_upload import MAX_UPLOAD_BYTES
-from app.server import app
+from app.server import app, invalid_email_fields, missing_required_fields, normalize_url
 
 
 def main():
@@ -23,12 +23,65 @@ def main():
     assert health.json()["status"] == "ok"
     print("health ok")
 
+    assert normalize_url("zoho.com") == "https://zoho.com"
+    assert normalize_url("https://www.zoho.com") == "https://www.zoho.com"
+    assert normalize_url("  http://example.com  ") == "http://example.com"
+    print("website normalization ok")
+
+    missing_labels = missing_required_fields(
+        full_name="",
+        phone="",
+        email="",
+        outreach_email="",
+        website="",
+        title="",
+        industry="",
+        has_csv=False,
+    )
+    assert missing_labels == [
+        "Full name",
+        "Phone",
+        "Email",
+        "Outreach email",
+        "Industry",
+        "Title",
+        "Company website",
+        "Prospect CSV",
+    ]
+    assert (
+        missing_required_fields(
+            full_name="Priya Mehta",
+            phone="+919845512210",
+            email="priya.mehta@nexusflow.io",
+            outreach_email="priya.sales@nexusflow.io",
+            website="https://www.zoho.com",
+            title="Account Executive",
+            industry="Software / SaaS",
+            has_csv=True,
+        )
+        == []
+    )
+    print("required-field checks ok")
+
+    assert invalid_email_fields("priya@nexusflow.io", "priya.sales@nexusflow.io") is None
+    assert invalid_email_fields("not-an-email", "priya@nexusflow.io")
+    assert invalid_email_fields("priya@nexusflow.io", "also-not")
+    print("email format checks ok")
+
     catalog = client.get("/api/catalog")
     assert catalog.status_code == 200
     body = catalog.json()
     assert any(item["label"] == "Software / SaaS" for item in body["industries"])
     assert "Software / SaaS" in body["titles_by_industry"]
     print("catalog ok")
+
+    mock_bundle = client.get("/api/mock/bundle")
+    assert mock_bundle.status_code == 200
+    bundle = mock_bundle.json()
+    assert bundle["user"]["full_name"]
+    assert bundle["companies"]
+    assert bundle["contacts"]
+    print("mock bundle ok")
 
     previous_otp = os.environ.get("OTP_REQUIRED")
     os.environ["OTP_REQUIRED"] = "false"

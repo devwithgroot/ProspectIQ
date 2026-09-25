@@ -7,14 +7,12 @@ from tests.test_email_verify import main as test_email_verify
 from tests.test_prospect_upload import main as test_prospect_upload
 from tests.test_outreach import main as test_outreach
 from tests.test_research_jobs import main as test_research_jobs
-from tests.test_ui import main as test_ui
 
 
 TESTS = [
     ("prospect upload", test_prospect_upload),
     ("catalog", test_catalog),
     ("email verify", test_email_verify),
-    ("ui", test_ui),
     ("api", test_api),
     ("research jobs", test_research_jobs),
     ("outreach draft", test_outreach),
@@ -23,7 +21,7 @@ TESTS = [
 
 def main():
     print("\n==============================")
-    print("UI TEST RUNNER")
+    print("API TEST RUNNER")
     print("==============================")
 
     for name, test in TESTS:
@@ -36,7 +34,7 @@ def main():
             return 1
 
     print("\n==============================")
-    print("UI TESTS PASSED")
+    print("API TESTS PASSED")
     print("==============================")
     return 0
 

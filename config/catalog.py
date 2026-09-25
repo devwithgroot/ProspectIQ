@@ -30,14 +30,14 @@ Industry = StrEnum(
     {item["id"]: item["label"] for item in _items("industries")},
 )
 
-SellerTitle = StrEnum(
-    "SellerTitle",
+UserTitle = StrEnum(
+    "UserTitle",
     {item["id"]: item["label"] for item in _items("titles")},
 )
 
 
 def _ids(values: list[str]) -> list[str]:
-    return [value for value in values if value in SellerTitle.__members__]
+    return [value for value in values if value in UserTitle.__members__]
 
 
 def common_title_ids() -> list[str]:
@@ -60,8 +60,8 @@ def title_ids_for(industry: Industry) -> list[str]:
     return ordered
 
 
-def titles_for(industry: Industry) -> list[SellerTitle]:
-    return [SellerTitle[title_id] for title_id in title_ids_for(industry)]
+def titles_for(industry: Industry) -> list[UserTitle]:
+    return [UserTitle[title_id] for title_id in title_ids_for(industry)]
 
 
 def parse_industry(value: str) -> Industry:
@@ -74,17 +74,17 @@ def parse_industry(value: str) -> Industry:
     raise ValueError("Industry must be selected from the list.")
 
 
-def parse_title(value: str) -> SellerTitle:
+def parse_title(value: str) -> UserTitle:
     text = value.strip()
-    if text in SellerTitle.__members__:
-        return SellerTitle[text]
-    for title in SellerTitle:
+    if text in UserTitle.__members__:
+        return UserTitle[text]
+    for title in UserTitle:
         if title.value == text:
             return title
     raise ValueError("Title must be selected from the list.")
 
 
-def title_allowed(title: SellerTitle, industry: Industry) -> bool:
+def title_allowed(title: UserTitle, industry: Industry) -> bool:
     return title.name in set(title_ids_for(industry))
 
 

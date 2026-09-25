@@ -1,4 +1,4 @@
-import { fetchApi } from "@/lib/api";
+import { API_URL, fetchApi } from "@/lib/api";
 import type {
   ContactRow,
   MockBundle,
@@ -9,7 +9,9 @@ import type {
 export const fetchMockBundle = async (): Promise<MockBundle> => {
   const response = await fetchApi("/api/mock/bundle", { cache: "no-store" });
   if (!response.ok) {
-    throw new Error("Could not load mock dashboard data.");
+    throw new Error(
+      `Could not load mock dashboard data from ${API_URL}/api/mock/bundle (${response.status}).`,
+    );
   }
   return response.json();
 };

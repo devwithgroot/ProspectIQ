@@ -1,7 +1,12 @@
 from pathlib import Path
 import tempfile
 
-from app.prospect_upload import MAX_UPLOAD_BYTES, load_prospect_csv
+from app.prospect_upload import (
+    MAX_UPLOAD_BYTES,
+    load_prospect_csv,
+    preview_prospect_csv,
+    upload_too_large,
+)
 
 
 def main():
@@ -47,6 +52,18 @@ def main():
     except ValueError as exc:
         assert "5 MB" in str(exc)
         print("oversized file blocked")
+
+    assert upload_too_large(None) is False
+    assert upload_too_large(MAX_UPLOAD_BYTES) is False
+    assert upload_too_large(MAX_UPLOAD_BYTES + 1) is True
+    print("5 MB per-file limit ok")
+
+    rows = preview_prospect_csv(sample)
+    assert [row["company_name"] for row in rows] == [
+        "Asian Paints",
+        "Havells India",
+    ]
+    print("CSV preview ok")
 
     print("PROSPECT UPLOAD TEST PASSED")
 

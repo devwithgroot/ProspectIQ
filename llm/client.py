@@ -1,16 +1,22 @@
 import os
+import time
 
 import httpx
 from dotenv import load_dotenv
 
+from config.research_log import get_logger
+
 
 load_dotenv()
+
+log = get_logger("llm")
 
 
 class LLMClient:
     def __init__(self):
         self.base_url = os.getenv("MLX_BASE_URL")
         self.model = os.getenv("MLX_MODEL")
+        self.timeout = float(os.getenv("MLX_TIMEOUT", "180"))
 
         if not self.base_url:
             raise ValueError("MLX_BASE_URL is not configured")
@@ -37,14 +43,39 @@ class LLMClient:
             "max_tokens": max_tokens,
         }
 
-        response = httpx.post(
-            f"{self.base_url}/v1/chat/completions",
-            json=payload,
-            timeout=120,
+        url = f"{self.base_url}/v1/chat/completions"
+        log.info(
+            "MLX start model=%s tokens=%s prompt_chars=%s timeout=%.0fs",
+            self.model,
+            max_tokens,
+            len(prompt),
+            self.timeout,
         )
+        log.debug("MLX prompt: %s", prompt[:800])
+        started = time.perf_counter()
+        try:
+            response = httpx.post(
+                url,
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+        except Exception:
+            log.exception(
+                "MLX failed model=%s url=%s elapsed=%.1fs",
+                self.model,
+                url,
+                time.perf_counter() - started,
+            )
+            raise
 
-        response.raise_for_status()
-
-        data = response.json()
-
-        return data["choices"][0]["message"]["content"]
+        elapsed = time.perf_counter() - started
+        log.info(
+            "MLX ok elapsed=%.1fs reply_chars=%s",
+            elapsed,
+            len(content or ""),
+        )
+        log.debug("MLX reply: %s", (content or "")[:800])
+        return content

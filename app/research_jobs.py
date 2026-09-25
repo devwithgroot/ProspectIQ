@@ -8,8 +8,11 @@ from threading import Lock
 from typing import Any, Literal
 from uuid import uuid4
 
+from config.research_log import get_logger
+
 
 JOBS_DIR = Path(__file__).resolve().parent.parent / "data" / "jobs"
+log = get_logger("jobs")
 
 JobStatus = Literal["running", "done", "error", "lost", "cancelled"]
 ControlAction = Literal["ok", "cancel", "skip"]
@@ -99,6 +102,7 @@ class ResearchJobStore:
             "percent": 0,
             "result": None,
             "error": None,
+            "error_detail": None,
             "cancel_requested": False,
             "skip_requested": False,
             "skip_company": None,
@@ -123,8 +127,16 @@ class ResearchJobStore:
                     "Research stopped because the server restarted. "
                     "Start it again from your list."
                 )
+                disk["error_detail"] = (
+                    "Job was still running on disk after the API process exited."
+                )
                 disk["updated_at"] = _utc_now()
                 self._write(disk)
+                log.error(
+                    "Research job %s marked lost — API restarted while it was still running (was: %s)",
+                    job_id,
+                    disk.get("current"),
+                )
             return disk
 
     def progress(self, job_id: str, message: str) -> dict[str, Any] | None:
@@ -248,7 +260,12 @@ class ResearchJobStore:
             self._write(job)
             return deepcopy(job)
 
-    def fail(self, job_id: str, error: str) -> dict[str, Any] | None:
+    def fail(
+        self,
+        job_id: str,
+        error: str,
+        detail: str | None = None,
+    ) -> dict[str, Any] | None:
         with self._lock:
             job = self._live.get(job_id)
             if job is None:
@@ -261,6 +278,7 @@ class ResearchJobStore:
             job["skip_requested"] = False
             job["skip_company"] = None
             job["error"] = error
+            job["error_detail"] = detail
             job["updated_at"] = _utc_now()
             self._write(job)
             return deepcopy(job)

@@ -57,6 +57,7 @@ class Excon:
         contacts: list[Contact],
         products: list[Product],
         dnc: list[DoNotContactEntry] | None = None,
+        channel: str | None = None,
     ) -> OutreachBatch:
         if dnc is not None:
             self.dnc = list(dnc)
@@ -98,6 +99,7 @@ class Excon:
                 contact=contact,
                 profile=profile,
                 dnc=self.dnc,
+                channel=channel,
             )
             packages.append(package)
 

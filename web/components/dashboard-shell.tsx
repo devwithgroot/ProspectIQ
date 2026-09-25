@@ -28,7 +28,7 @@ export const DashboardShell = ({ children }: DashboardShellProps) => {
         <AlertDescription>
           {error ?? "Mock bundle did not load."} Start the API with{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-xs">
-            .\run_api.ps1
+            ./run_api.sh
           </code>{" "}
           and refresh.
         </AlertDescription>

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from app import research_jobs
-from app.pipeline import ResearchCancelled, ResearchSkipped, SellerPipeline
+from app.pipeline import ResearchCancelled, ResearchSkipped, UserPipeline
 from app.prospect_upload import UploadedProspect
 from app.research_jobs import (
     ResearchJobStore,
@@ -58,7 +58,21 @@ def main():
         lost = second.get(job["job_id"])
         assert lost is not None
         assert lost["status"] == "lost"
+        assert lost.get("error_detail")
         print("refresh after server restart is lost")
+
+        failed = ResearchJobStore(Path(folder))
+        broken = failed.start(["Acme"])
+        failed.fail(
+            broken["job_id"],
+            "We couldn’t finish research.",
+            detail="TimeoutError: mlx timed out",
+        )
+        stored = failed.get(broken["job_id"])
+        assert stored is not None
+        assert stored["status"] == "error"
+        assert stored["error_detail"] == "TimeoutError: mlx timed out"
+        print("fail stores error_detail")
 
         first.complete(job["job_id"], {"ok": True})
         done = first.get(job["job_id"])
@@ -118,7 +132,7 @@ def main():
                 time.sleep(0.05)
                 return _FakeResult()
 
-        with patch("app.server.SellerPipeline", FakePipeline):
+        with patch("app.server.UserPipeline", FakePipeline):
             started = client.post(
                 "/api/research",
                 data={
@@ -173,7 +187,7 @@ def main():
                     time.sleep(0.02)
                 return _FakeResult()
 
-        with patch("app.server.SellerPipeline", SlowPipeline):
+        with patch("app.server.UserPipeline", SlowPipeline):
             started = client.post(
                 "/api/research",
                 data={
@@ -271,7 +285,7 @@ def _test_pipeline_skip_and_cancel() -> None:
             raise ResearchSkipped()
         return object()
 
-    pipeline = SellerPipeline()
+    pipeline = UserPipeline()
     pipeline.onboarder.enroll = lambda **kwargs: (user, [])
     pipeline.analyzer.analyze = analyze
     pipeline._find_people = lambda *args, **kwargs: ([], [])

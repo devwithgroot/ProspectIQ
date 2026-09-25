@@ -26,6 +26,19 @@ def main():
     assert contact.consent.email is False
     print(f"{contact.full_name} → {contact.decision_role}")
 
+    founder = person_to_contact(
+        PersonData(
+            first_name="Pablo",
+            last_name="Salerno",
+            title="Fundador",
+        ),
+        "co_unimad",
+    )
+    assert founder is not None
+    assert founder.title == "Founder"
+    assert founder.decision_role == "economic_buyer"
+    print(f"{founder.full_name} · {founder.title} → {founder.decision_role}")
+
     unnamed = person_to_contact(PersonData(title="Analyst"), "co_x")
     assert unnamed is None
     print("blank name is skipped")

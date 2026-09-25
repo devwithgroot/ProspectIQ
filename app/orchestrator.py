@@ -4,6 +4,9 @@ from agents.research_agent import ResearchAgent
 from agents.scoring_agent import ScoringAgent
 from agents.report_agent import ReportAgent
 from agents.state import ResearchState
+from config.research_log import get_logger
+
+log = get_logger("orchestrator")
 
 
 class ProspectIQ:
@@ -20,26 +23,25 @@ class ProspectIQ:
         research_goal: str,
         on_progress: Callable[[str], None] | None = None,
     ):
-        print("\n==============================")
-        print("PROSPECTIQ ANALYSIS")
-        print("==============================")
-
-        # Step 1: Create initial research state
+        log.info("Analyze start company=%s", company_name)
         state = ResearchState(
             company_name=company_name,
             research_goal=research_goal,
         )
 
-        # Step 2: Research the company
-        print("\n[1/3] RESEARCH")
+        log.info("[1/3] Research %s", company_name)
         state = self.research_agent.run(state, on_progress=on_progress)
 
-        # Step 3: Score the prospect
-        print("\n[2/3] SCORING")
+        log.info("[2/3] Scoring %s", company_name)
         score = self.scoring_agent.score(state, on_progress=on_progress)
+        log.info(
+            "Score %s overall=%.1f recommendation=%s",
+            company_name,
+            score.overall_score,
+            score.recommendation,
+        )
 
-        # Step 4: Generate final report
-        print("\n[3/3] REPORT")
+        log.info("[3/3] Report %s", company_name)
         report = self.report_agent.generate(
             state=state,
             score=score,
@@ -47,9 +49,9 @@ class ProspectIQ:
         )
 
         self.last_state = state
-
-        print("\n==============================")
-        print("PROSPECTIQ ANALYSIS COMPLETE")
-        print("==============================")
-
+        log.info(
+            "Analyze complete company=%s evidence=%s",
+            company_name,
+            len(state.evidence),
+        )
         return report

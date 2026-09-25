@@ -8,16 +8,16 @@ This is the product path a salesperson is supposed to take. Steps 1–4 run toda
 1. Enter name, phone, work email, industry, and title
 2. Confirm company website (suggested from the work-email domain)
 3. Optionally upload prospect companies
-4. System builds the seller + researches prospects
-5. Seller picks a prospect → sees contacts
+4. System builds the user + researches prospects
+5. User picks a prospect → sees contacts
 6. System drafts outreach from each contact profile
-7. Seller edits / approves / sends
+7. User edits / approves / sends
 8. Analytics and reports
 ```
 
 ### 1. Identity
 
-The seller types:
+The user types:
 
 - Full name
 - Phone number
@@ -25,21 +25,21 @@ The seller types:
 - Industry (suggestive dropdown, catalog only)
 - Title (suggestive dropdown, titles for that industry only)
 
-That becomes the `User` record. Work email is who they are. Industry and title are enums (`Industry`, `SellerTitle` in `config/catalog.py`). Free-typed values are rejected.
+That becomes the `User` record. Work email is who they are. Industry and title are enums (`Industry`, `UserTitle` in `config/catalog.py`). Free-typed values are rejected.
 
-Outreach email (the from-address, which can differ from work email) is not asked here. It is collected later, after login, when the seller starts engagement.
+Outreach email (the from-address, which can differ from work email) is not asked here. It is collected later, after login, when the user starts engagement.
 
 ### 2. Company from a link
 
-The company website is suggested from the work-email domain (`you@acme.com` → `acme.com`). Consumer inboxes such as Gmail do not get a suggestion. The seller can overwrite the suggestion if the site is different.
+The company website is suggested from the work-email domain (`you@acme.com` → `acme.com`). Consumer inboxes such as Gmail do not get a suggestion. The user can overwrite the suggestion if the site is different.
 
 `OnboardingAgent` then:
 
 1. Fetches the page with `WebsiteReaderTool`
-2. Asks MLX to fill `SellerCompany` (name, description, size, HQ). Industry stays the value the seller picked.
+2. Asks MLX to fill `UserCompany` (name, description, size, HQ). Industry stays the value the user picked.
 3. Infers the `Product` list: what they sell, ICP, value props, typical buyers
 
-If the page cannot be fetched, MLX still runs on the URL alone. The seller should be able to correct the result before outreach; that edit step is not in the CLI yet.
+If the page cannot be fetched, MLX still runs on the URL alone. The user should be able to correct the result before outreach; that edit step is not in the CLI yet.
 
 ### 3. Prospect list
 
@@ -52,9 +52,9 @@ They type companies into a spreadsheet-style list, or switch to Upload for a CSV
 | notes | no | Why they care |
 | owner | no | If a team later |
 
-Typed rows and uploaded rows both land in the same editable sheet (company, website, notes; CSV duplicates dropped). Research starts from that list. The form estimates time from list size: about a minute to read the seller site, then about 2–3 minutes per company, plus a few extra minutes of buffer. After research, briefings stay on a review screen so the seller can edit the wording before they keep it. Each company is then researched with Tavily, scored and reported with MLX, then mapped to a `Prospect` (`signals`, `pain_points`, score, `why_relevant_to_user`, `matched_product_ids`). See [PIPELINE.md](PIPELINE.md).
+Typed rows and uploaded rows both land in the same editable sheet (company, website, notes; CSV duplicates dropped). Research starts from that list. The form estimates time from list size: about a minute to read the user’s site, then about 2–3 minutes per company, plus a few extra minutes of buffer. After research, briefings stay on a review screen so the user can edit the wording before they keep it. Each company is then researched with Tavily, scored and reported with MLX, then mapped to a `Prospect` (`signals`, `pain_points`, score, `why_relevant_to_user`, `matched_product_ids`). See [PIPELINE.md](PIPELINE.md).
 
-If they add nothing, Phase 1 can later *discover* prospects from the seller ICP. That discovery path is not built yet.
+If they add nothing, Phase 1 can later *discover* prospects from the user’s ICP. That discovery path is not built yet.
 
 ### 4. Research and summary (Phases 1–2)
 
@@ -66,17 +66,17 @@ For each prospect:
 - Find contacts at that company
 - Build a `ContactProfile` per person (role, pain vs our product, talking points, preferred channel, consent)
 
-The seller sees companies first, then people. They do not start from a raw lead dump.
+The user sees companies first, then people. They do not start from a raw lead dump.
 
 ### 5. Engage (Phase 3 EXCON)
 
-The seller picks one or more prospects they want to talk to. This is also when they set (and, if `OTP_REQUIRED=true`, confirm) the outreach email prospects will see as the from-address.
+The user picks one or more prospects they want to talk to. This is also when they set (and, if `OTP_REQUIRED=true`, confirm) the outreach email prospects will see as the from-address.
 
 For each chosen prospect they see that company's contacts. EXCON then:
 
 1. Skips do-not-contact and no-consent people
 2. Drafts the **primary channel** only (email, LinkedIn, WhatsApp, Slack, or SMS)
-3. Lets the seller edit the copy
+3. Lets the user edit the copy
 4. Requires explicit approve before send
 5. Sends through the matching connector, or dry-run if credentials are missing
 
@@ -88,11 +88,11 @@ Not built. The event log already records `drafted`, `edited`, `approved`, `rejec
 
 ## What works if you run the repo today
 
-The first application slice is the Next.js + shadcn form, plus the same CLI. Both use the same MLX and Tavily clients. The form is four sections: You, Role, Company, Prospects. Until signup exists, this browser remembers the seller’s details, list, current step, and last briefings in local storage.
+The first application slice is the Next.js + shadcn form, plus the same CLI. Both use the same MLX and Tavily clients. The form is four sections: You, Role, Company, Prospects. Until signup exists, this browser remembers the user’s details, list, current step, and last briefings in local storage.
 
 1. Enter name, phone, work email, industry, title, and company website (`./run_app.sh` or `./run_pipeline.sh`). The site is suggested from the work-email domain.
 2. Point at a prospect CSV (`company_name`, optional `website`, `notes`)
-3. Onboarding reads the seller site and infers company + products via MLX
+3. Onboarding reads the user’s site and infers company + products via MLX
 4. Live `ProspectIQ.analyze()` runs for **each uploaded company** (Tavily + MLX)
 5. Researched prospects are saved under `data/runs/`
 
@@ -107,6 +107,6 @@ Company-only research without onboarding still runs through `ProspectIQ.analyze(
 - Never send without approve
 - Never draft or send a DNC / no-consent contact
 - One primary channel first, not five messages at once
-- Seller can always edit before approve
+- User can always edit before approve
 - Uploaded prospects are researched before they are engaged
-- Seller company + products must exist before outreach
+- User company + products must exist before outreach

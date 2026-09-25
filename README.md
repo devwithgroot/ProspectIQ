@@ -1,14 +1,14 @@
 # ProspectIQ
 
-Local agentic B2B sales intelligence. A seller signs up, we learn their company from a website link, they can upload prospects, and the system researches those companies, finds contacts, scores fit, and prepares channel-specific outreach for human approval.
+Local agentic B2B sales intelligence. A user signs up, we learn their company from a website link, they can upload prospects, and the system researches those companies, finds contacts, scores fit, and prepares channel-specific outreach for human approval.
 
 ## Product in one picture
 
 ```text
-Seller signup (name, phone, email)
+User signup (name, phone, email)
         │
         ▼
-Company website link  ──►  seller company + products
+Company website link  ──►  user company + products
         │
         ▼
 Optional prospect upload  ──►  companies of interest
@@ -20,13 +20,13 @@ Phase 3  EXCON — draft, edit, approve, send
 Phase 4  Analytics, UI, reports
 ```
 
-Seller onboarding + CSV upload now run the existing orchestrator for each uploaded company. Phase 3 EXCON still uses mock contacts until contact discovery exists. Phase 4 is not built.
+User onboarding + CSV upload now run the existing orchestrator for each uploaded company. Phase 3 EXCON still uses mock contacts until contact discovery exists. Phase 4 is not built.
 
 ## Docs
 
 | Doc | What it covers |
 |---|---|
-| [docs/USER_FLOW.md](docs/USER_FLOW.md) | How a seller uses the product, now vs intended |
+| [docs/USER_FLOW.md](docs/USER_FLOW.md) | How a user uses the product, now vs intended |
 | [docs/PIPELINE.md](docs/PIPELINE.md) | Onboard + CSV + live orchestrator (MLX, Tavily) |
 | [docs/RESEARCH.md](docs/RESEARCH.md) | Research run: who is asked, which entity is filled |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, machines, and how they connect |
@@ -45,7 +45,7 @@ Older setup journals in `docs/*.docx` are historical. These markdown files are t
 - **Outreach:** EXCON drafts for email, LinkedIn, WhatsApp, Slack, SMS. Send is approval-gated and dry-run by default
 
 ```text
-Seller laptop / app
+User laptop / app
         │  HTTP
         ▼
 Mac mini :8080  →  MLX-LM  →  Qwen3 8B 4-bit
@@ -88,7 +88,9 @@ cd ..
 
 UI is http://localhost:3000. API is http://localhost:8000. After you upload the CSV, the form stages the parsed companies so you can review them before research starts. Max 5 MB per file. The company site is suggested from the work-email domain and can be overwritten. Outreach email is asked later, at engagement. Until signup exists, the form keeps this browser’s draft (details, list, step, last briefings) in local storage.
 
-UI / upload checks:
+Research logs print in the API terminal and also go to `logs/research.log` (onboarding, Tavily, MLX, scoring, people, tracebacks). Poll/health hits are filtered so failures stay visible. Follow the file with `tail -f logs/research.log`. Set `LOG_LEVEL=DEBUG` in `.env` for prompts and replies. `MLX_TIMEOUT` defaults to 180 seconds.
+
+API / form checks:
 
 ```bash
 python -m tests.run_ui
@@ -127,11 +129,11 @@ That runs mock/schema/connector checks, then live outreach + EXCON against Qwen.
 
 ```text
 agents/          Research, scoring, report, outreach
-app/             ProspectIQ.analyze(), seller pipeline, FastAPI, Excon
+app/             ProspectIQ.analyze(), user pipeline, FastAPI, Excon
 web/             Next.js + shadcn form
 config/          Research schemas, EXCON schemas, industry/title catalog
 connectors/      Email, LinkedIn, WhatsApp, Slack, SMS
-data/mock/       Seller, products, prospects, contacts, profiles
+data/mock/       User, products, prospects, contacts, profiles
 llm/             MLX client + JSON parse/retry
 tools/           Web search, website reader, evidence
 tests/           Script-style tests (`python -m tests.test_*`)

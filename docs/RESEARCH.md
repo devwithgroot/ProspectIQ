@@ -2,7 +2,7 @@
 
 What a research run asks for, which model it fills, and where the answer is stored.
 
-Seller objects live in `config/excon_schemas.py`. Scratch notes the model writes while researching (`Evidence`, `ProspectReport`, `PersonData`) live in `config/schemas.py`. Those scratch notes are mapped into the saved graph before the run is written to `data/runs/<timestamp>/`.
+User objects live in `config/excon_schemas.py`. Scratch notes the model writes while researching (`Evidence`, `ProspectReport`, `PersonData`) live in `config/schemas.py`. Those scratch notes are mapped into the saved graph before the run is written to `data/runs/<timestamp>/`.
 
 ## The graph
 
@@ -24,13 +24,13 @@ Two pairs on purpose:
 | `Company` | `CompanyProfile` |
 | `Contact` | `ContactProfile` |
 
-The seller’s own firm is `User.company` (`SellerCompany`). That is not a researched `Company`.
+The user’s own firm is `User.company` (`UserCompany`). That is not a researched `Company`.
 
 IDs: `us_` user, `pd_` product, `co_` company, `cp_` company profile, `ct_` contact, `pf_` contact profile.
 
 | Entity | Defined in | Filled by | Saved to (run / mock) |
 |---|---|---|---|
-| `User` + `SellerCompany` | `config/excon_schemas.py` | `app/onboarding.py` | `user.json` |
+| `User` + `UserCompany` | `config/excon_schemas.py` | `app/onboarding.py` | `user.json` |
 | `Product` | `config/excon_schemas.py` | `app/onboarding.py` | `products.json` |
 | `Company` | `config/excon_schemas.py` | `app/report_mapper.py` | `companies.json` |
 | `CompanyProfile` | `config/excon_schemas.py` | `app/report_mapper.py` from `agents/report_agent.py` | `company_profiles.json` |
@@ -42,12 +42,12 @@ IDs: `us_` user, `pd_` product, `co_` company, `cp_` company profile, `ct_` cont
 ## Who is asked, and what they fill
 
 ```text
-Seller (form)
+User (form)
         │
         ▼
 OnboardingAgent
   website fetch  →  page text
-  MLX            →  User + SellerCompany + Product[]
+  MLX            →  User + UserCompany + Product[]
         │
         ▼
 Uploaded rows (company_name, website, notes)
@@ -72,7 +72,7 @@ ResearchAgent.lookup_person()  Tavily        →  Evidence[] on that person
 ContactProfileAgent            MLX           →  ContactProfile
 ```
 
-### 1. Seller — `User`, `SellerCompany`, `Product`
+### 1. User — `User`, `UserCompany`, `Product`
 
 **Asked:** name, phone, work email, industry, title, company website (suggested from the email domain). List of target companies (typed grid or CSV).
 
@@ -81,7 +81,7 @@ ContactProfileAgent            MLX           →  ContactProfile
 | Entity | What it is | Source |
 |---|---|---|
 | `User` | The salesperson | Form fields + MLX voice (tone, signature, CTA) |
-| `SellerCompany` | Their firm (`User.company`) | Website page via `WebsiteReaderTool`, then MLX. Industry stays the catalog value they picked. |
+| `UserCompany` | Their firm (`User.company`) | Website page via `WebsiteReaderTool`, then MLX. Industry stays the catalog value they picked. |
 | `Product` | What they sell | MLX from the same page (ICP, buyers, value props) |
 
 `title` and `company.industry` are catalog enums only (`config/catalog.json`).
@@ -141,7 +141,7 @@ The planner is told to look for growth, expansion, hiring, tech, funding, and **
 - handles: `email`, `phone`, `linkedin_url` (often empty until enrich)
 - `preferred_channel`, `consent`, `do_not_contact`
 
-Consent: LinkedIn is on if we have a profile URL. Email and SMS stay off even if Prospeo returned a handle. EXCON will not email them until the seller consents.
+Consent: LinkedIn is on if we have a profile URL. Email and SMS stay off even if Prospeo returned a handle. EXCON will not email them until the user consents.
 
 `ContactProfile` is their briefing:
 
@@ -180,11 +180,11 @@ Time estimate on the form includes this people pass (about 3–5 minutes per com
 
 | File | What it defines |
 |---|---|
-| `config/excon_schemas.py` | `User`, `SellerCompany`, `Product`, `Company`, `CompanyProfile`, `Contact`, `ContactProfile`, outreach types |
+| `config/excon_schemas.py` | `User`, `UserCompany`, `Product`, `Company`, `CompanyProfile`, `Contact`, `ContactProfile`, outreach types |
 | `config/schemas.py` | Scratch notes: `Evidence`, `ResearchDecision`, `ProspectScore`, `ProspectReport`, `PersonData`, `ContactProfileDraft` |
 | `config/catalog.py` + `config/catalog.json` | Industry and title enums |
 | `web/lib/catalog-data.json` | Same catalog for the Next.js form (keep in sync) |
-| `web/lib/types.ts` | Frontend copies of seller, company, contact, job, result |
+| `web/lib/types.ts` | Frontend copies of user, company, contact, job, result |
 | `agents/state.py` | `ResearchState` (queries + evidence while a company is being researched) |
 | `app/prospect_upload.py` | `UploadedProspect` (grid/CSV row, not saved as its own entity) |
 
@@ -192,20 +192,23 @@ Time estimate on the form includes this people pass (about 3–5 minutes per com
 
 | File | Used for |
 |---|---|
-| `web/components/research-form.tsx` | Seller form, company list, researching UI, briefing review |
+| `web/components/research-form.tsx` | User form, company list, researching UI, briefing review |
+| `web/components/engagements.tsx` | Draft inbox after you pick a channel on a contact |
+| `web/components/companies-book.tsx` | Saved companies, profiles, people, channel engage |
+| `web/lib/book.ts` | Merge research runs into the seller’s company book; reuse seller company |
 | `web/lib/research-store.ts` | Browser draft in localStorage (`prospectiq-draft-v1`) |
 | `web/lib/research-job.ts` | Poll `GET /api/research/{job_id}`; stop or skip company |
 | `web/lib/research-estimate.ts` | Time left and activity copy |
 | `app/server.py` | FastAPI: start research, poll, cancel, skip company |
 | `app/research_jobs.py` | Job store + percent + cancel/skip; writes `data/jobs/rj_*.json` |
-| `app/pipeline.py` | `SellerPipeline` — whole run; `save_run()` writes `data/runs/` |
-| `app/onboarding.py` | Fills `User`, `SellerCompany`, `Product` from the website |
+| `app/pipeline.py` | `UserPipeline` — whole run; `save_run()` writes `data/runs/` |
+| `app/onboarding.py` | Fills `User`, `UserCompany`, `Product` from the website |
 | `app/orchestrator.py` | `ProspectIQ.analyze()` — company research, score, report |
 | `agents/research_agent.py` | Company Tavily loop; `lookup_person()` for each contact |
 | `agents/scoring_agent.py` | Fills `ProspectScore` |
 | `agents/report_agent.py` | Fills `ProspectReport` |
 | `app/report_mapper.py` | `ProspectReport` → `Company` + `CompanyProfile` |
-| `tools/website_reader.py` | Fetch seller (and any) website page |
+| `tools/website_reader.py` | Fetch user (and any) website page |
 | `tools/web_search.py` | Tavily search → `Evidence` |
 | `tools/evidence_evaluator.py` | Relevance / quality on each article |
 | `tools/people_data.py` | People search entry point |
@@ -223,7 +226,7 @@ Time estimate on the form includes this people pass (about 3–5 minutes per com
 
 | File | Entity |
 |---|---|
-| `user.json` | `User` (includes `SellerCompany`) |
+| `user.json` | `User` (includes `UserCompany`) |
 | `products.json` | `Product[]` |
 | `companies.json` | `Company[]` |
 | `company_profiles.json` | `CompanyProfile[]` |
