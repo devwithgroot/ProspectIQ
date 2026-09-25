@@ -1,35 +1,47 @@
-from tools.company_data import CompanyDataTool
+from tools.providers.apollo import ApolloProvider
 
 
 def main():
+
     print("=" * 60)
-    print("COMPANY DATA TOOL TEST")
+    print("APOLLO PEOPLE SEARCH TEST")
     print("=" * 60)
 
-    tool = CompanyDataTool()
+    provider = ApolloProvider()
 
-    print(f"\nName: {tool.name}")
-    print(f"Description: {tool.description}")
+    print("\nSearching for decision makers...\n")
 
-    print("\nTesting validation...")
+    people = provider.search_people(
+        company_name="Asian Paints",
+        titles=[
+            "Chief Technology Officer",
+            "Chief Information Officer",
+            "VP Engineering",
+            "Head of Technology",
+        ],
+        limit=10,
+    )
 
-    try:
-        tool.execute(
-            company_name=""
+    print(f"Found: {len(people)} people")
+
+    print("\n" + "-" * 60)
+
+    for index, person in enumerate(
+        people,
+        start=1,
+    ):
+
+        print(f"\nPerson {index}")
+
+        print(f"Name: {person.name}")
+        print(f"Title: {person.title}")
+        print(f"LinkedIn: {person.linkedin_url}")
+        print(
+            f"Organization: "
+            f"{person.organization_name}"
         )
-
-    except ValueError as exc:
-        print(f"Validation passed: {exc}")
-
-    print("\nTesting provider state...")
-
-    try:
-        tool.execute(
-            company_name="Asian Paints"
-        )
-
-    except NotImplementedError as exc:
-        print(f"Provider not configured: {exc}")
+        print(f"Location: {person.city}, {person.country}")
+        print(f"Seniority: {person.seniority}")
 
     print("\n" + "=" * 60)
     print("TEST COMPLETED")

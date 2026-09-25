@@ -1,66 +1,43 @@
 from typing import Any
 
-import requests
-from pydantic import BaseModel, Field
-
+from config.schemas import CompanyData
 from tools.base import BaseTool
-
-
-class CompanyData(BaseModel):
-    """
-    Structured company information returned by the company data tool.
-    """
-
-    company_name: str
-    website: str | None = None
-    description: str | None = None
-    industry: str | None = None
-    employee_count: int | None = Field(
-        default=None,
-        ge=0,
-    )
-    headquarters: str | None = None
-    founded_year: int | None = Field(
-        default=None,
-        ge=1000,
-        le=2100,
-    )
+from tools.providers.apollo import ApolloProvider
 
 
 class CompanyDataTool(BaseTool):
     """
-    Retrieve structured public company information.
+    ProspectIQ company data tool.
 
-    The provider implementation is intentionally isolated from the
-    rest of ProspectIQ so that it can be replaced later without
-    changing the agents.
+    The tool exposes a provider-independent interface.
+    Apollo is currently used as the underlying provider.
     """
 
     name = "company_data"
 
     description = (
         "Retrieve structured public information about a company, "
-        "including its industry, website, employee count, "
-        "headquarters, founding year, and description."
+        "including industry, employees, revenue, funding, "
+        "technology, growth, and company metadata."
     )
-
-    DEFAULT_TIMEOUT = 10
 
     def __init__(
         self,
-        timeout: int = DEFAULT_TIMEOUT,
+        provider: ApolloProvider | None = None,
     ) -> None:
 
-        if timeout <= 0:
-            raise ValueError(
-                "Timeout must be greater than zero"
-            )
-
-        self.timeout = timeout
+        self.provider = (
+            provider
+            if provider is not None
+            else ApolloProvider()
+        )
 
     def execute(
         self,
         company_name: str,
+        domain: str | None = None,
+        website: str | None = None,
+        linkedin_url: str | None = None,
         **kwargs: Any,
     ) -> CompanyData:
 
@@ -68,13 +45,11 @@ class CompanyDataTool(BaseTool):
             company_name
         )
 
-        # Provider integration will be added here.
-        #
-        # For now, return a controlled failure rather than
-        # silently returning fabricated company information.
-
-        raise NotImplementedError(
-            "Company data provider is not configured yet."
+        return self.provider.enrich_company(
+            company_name=company_name,
+            domain=domain,
+            website=website,
+            linkedin_url=linkedin_url,
         )
 
     @staticmethod

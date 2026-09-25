@@ -175,3 +175,31 @@ class ProspectReport(BaseModel):
     evidence: list[Evidence] = Field(
         default_factory=list
     )
+
+
+class PersonData(BaseModel):
+    id: str | None = None
+
+    first_name: str | None = None
+    last_name: str | None = None
+    name: str | None = None
+
+    title: str | None = None
+
+    email: str | None = None
+    email_status: str | None = None
+
+    mobile: str | None = None
+    mobile_status: str | None = None
+
+    linkedin_url: str | None = None
+
+    organization_name: str | None = None
+    organization_id: str | None = None
+
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+
+    seniority: str | None = None
+    departments: list[str] = Field(default_factory=list)
