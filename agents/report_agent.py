@@ -1,6 +1,9 @@
+from collections.abc import Callable
+
 from agents.state import ResearchState
 from config.schemas import ProspectReport, ProspectScore
 from llm.client import LLMClient
+from llm.json_util import extract_think, parse_model, reason_lines
 
 
 class ReportAgent:
@@ -12,7 +15,10 @@ class ReportAgent:
         self,
         state: ResearchState,
         score: ProspectScore,
+        on_progress: Callable[[str], None] | None = None,
     ) -> ProspectReport:
+        if on_progress is not None:
+            on_progress(f"Writing your {state.company_name} briefing")
 
         evidence_summary = "\n".join(
             [
@@ -117,13 +123,19 @@ Return ONLY valid JSON.
             temperature=0.0,
             max_tokens=800,
         )
+        if on_progress is not None:
+            for line in reason_lines(extract_think(response), limit=1):
+                on_progress(line)
 
-        report_data = ProspectReport.model_validate_json(
-            response
-        )
+        report_data = parse_model(ProspectReport, response)
 
         report_data.prospect_score = score.overall_score
         report_data.recommendation = score.recommendation
         report_data.evidence = state.evidence
+
+        if on_progress is not None and report_data.key_signals:
+            first = " ".join(report_data.key_signals[0].split())
+            if first:
+                on_progress(f"Why: the main thing to use is {first[:180]}")
 
         return report_data

@@ -5,9 +5,115 @@ import type { ProspectReport, StagedProspect, StagingPreview } from "@/lib/types
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "yahoo.co.in",
+  "yahoo.co.uk",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "gmx.com",
+  "mail.com",
+  "yandex.com",
+  "rediffmail.com",
+])
+
+export const INDIA_DIAL = "+91"
+export const LOCAL_PHONE_LENGTH = 10
+
 export function isEmail(value: string): boolean {
   const text = value.trim().toLowerCase()
   return text.includes("@") && text.split("@")[1]?.includes(".") === true
+}
+
+export function sanitizeName(value: string): string {
+  return value.replace(/[^\p{L}\s.'’-]/gu, "")
+}
+
+export function sanitizeEmail(value: string): string {
+  return value.replace(/\s+/g, "")
+}
+
+export function localPhoneDigits(value: string): string {
+  let digits = value.replace(/\D/g, "")
+  if (digits.startsWith("91") && digits.length >= 12) {
+    digits = digits.slice(2)
+  }
+  if (digits.startsWith("0")) {
+    digits = digits.replace(/^0+/, "")
+  }
+  return digits.slice(0, LOCAL_PHONE_LENGTH)
+}
+
+export function formatIndiaPhone(value: string): string {
+  return `${INDIA_DIAL}${localPhoneDigits(value)}`
+}
+
+export function validateFullName(fullName: string): string | null {
+  const name = fullName.trim()
+  if (!name) {
+    return "Please add your name."
+  }
+  if (name.replace(/[^\p{L}]/gu, "").length < 2) {
+    return "Please enter your full name."
+  }
+  return null
+}
+
+export function validatePhone(phone: string): string | null {
+  const local = localPhoneDigits(phone)
+  if (!local) {
+    return "Please add your phone number."
+  }
+  if (local.length !== LOCAL_PHONE_LENGTH) {
+    return "Enter a 10-digit mobile number."
+  }
+  if (!/^[6-9]/.test(local)) {
+    return "Enter a valid Indian mobile number."
+  }
+  return null
+}
+
+export function validateWorkEmail(email: string): string | null {
+  if (!email.trim()) {
+    return "Please add your work email."
+  }
+  if (!isEmail(email)) {
+    return "Please enter a valid work email."
+  }
+  return null
+}
+
+export function youFieldErrors(input: {
+  fullName: string
+  phone: string
+  email: string
+}): { fullName: string | null; phone: string | null; email: string | null } {
+  return {
+    fullName: validateFullName(input.fullName),
+    phone: validatePhone(input.phone),
+    email: validateWorkEmail(input.email),
+  }
+}
+
+export function websiteFromEmail(email: string): string | null {
+  if (!isEmail(email)) {
+    return null
+  }
+  const domain = email.split("@")[1]?.trim().toLowerCase()
+  if (!domain || PUBLIC_EMAIL_DOMAINS.has(domain)) {
+    return null
+  }
+  return domain
 }
 
 export function firstIssue(error: z.ZodError): string {
@@ -27,59 +133,33 @@ export const youDetailsSchema = z
     fullName: z.string(),
     phone: z.string(),
     email: z.string(),
-    outreachEmail: z.string(),
   })
   .superRefine((value, ctx) => {
-    const missing = [
-      !value.fullName.trim() && "name",
-      !value.phone.trim() && "phone number",
-      !value.email.trim() && "work email",
-      !value.outreachEmail.trim() && "outreach email",
-    ].filter((item): item is string => Boolean(item))
-
-    if (missing.length) {
+    const errors = youFieldErrors(value)
+    if (errors.fullName) {
       ctx.addIssue({
         code: "custom",
-        message:
-          missing.length >= 3
-            ? "Please add your name, phone, work email, and outreach email."
-            : `Please add your ${missing.join(" and ")}.`,
+        path: ["fullName"],
+        message: errors.fullName,
       })
-      return
     }
-    if (!isEmail(value.email)) {
+    if (errors.phone) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["phone"],
+        message: errors.phone,
+      })
+    }
+    if (errors.email) {
       ctx.addIssue({
         code: "custom",
         path: ["email"],
-        message: "Please enter a valid work email.",
-      })
-    }
-    if (!isEmail(value.outreachEmail)) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["outreachEmail"],
-        message: "Please enter a valid outreach email.",
+        message: errors.email,
       })
     }
   })
 
-export const youStepSchema = youDetailsSchema.and(
-  z
-    .object({
-      otpRequired: z.boolean(),
-      outreachVerified: z.boolean(),
-    })
-    .superRefine((value, ctx) => {
-      if (value.otpRequired && !value.outreachVerified) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["outreachVerified"],
-          message:
-            "Please confirm the outreach email. We’ll send a short code there.",
-        })
-      }
-    })
-)
+export const youStepSchema = youDetailsSchema
 
 export function roleStepSchema(catalog: Catalog) {
   return z
@@ -165,7 +245,6 @@ export function validateYouDetails(input: {
   fullName: string
   phone: string
   email: string
-  outreachEmail: string
 }): string | null {
   return validateOrMessage(youDetailsSchema, input)
 }
@@ -174,9 +253,6 @@ export function validateYouStep(input: {
   fullName: string
   phone: string
   email: string
-  outreachEmail: string
-  otpRequired: boolean
-  outreachVerified: boolean
 }): string | null {
   return validateOrMessage(youStepSchema, input)
 }
@@ -200,29 +276,34 @@ export function validateUploadFile(file: File | null): string | null {
   return validateOrMessage(uploadFileSchema, file)
 }
 
+export function filledStagedCompanies(
+  staging: StagingPreview | null
+): StagedProspect[] {
+  return (
+    staging?.companies.filter((row) => row.company_name.trim().length > 0) ?? []
+  )
+}
+
 export function validateStaging(
   staging: StagingPreview | null
 ): string | null {
-  if (!staging) {
+  if (filledStagedCompanies(staging).length === 0) {
     return "Add at least one company before starting research."
   }
-  return validateOrMessage(stagingSchema, staging)
+  return null
 }
 
 export function validateProspectsStep(
   file: File | null,
   staging: StagingPreview | null
 ): string | null {
-  if (!file && !staging) {
-    return "Please upload a spreadsheet of companies."
+  if (filledStagedCompanies(staging).length > 0) {
+    return null
   }
   if (file) {
-    const fileProblem = validateUploadFile(file)
-    if (fileProblem) {
-      return fileProblem
-    }
+    return validateUploadFile(file)
   }
-  return validateStaging(staging)
+  return "Add at least one company before starting research."
 }
 
 export function validateStagedCompany(row: StagedProspect): string | null {

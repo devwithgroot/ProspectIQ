@@ -1,9 +1,20 @@
+from collections.abc import Callable
 
 from tools.web_search import WebSearchTool
 from agents.state import ResearchState
 from llm.client import LLMClient
+from llm.json_util import extract_think, parse_model, reason_lines
 from config.schemas import ResearchDecision
 from tools.evidence_evaluator import EvidenceEvaluator
+
+
+def _one_line(text: str, limit: int = 140) -> str:
+    cleaned = " ".join((text or "").split())
+    if not cleaned:
+        return ""
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 1].rsplit(" ", 1)[0] + "…"
 
 
 class ResearchAgent:
@@ -12,7 +23,15 @@ class ResearchAgent:
         self.evaluator = EvidenceEvaluator()
         self.llm = LLMClient()
 
-    def run(self, state: ResearchState) -> ResearchState:
+    def run(
+        self,
+        state: ResearchState,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> ResearchState:
+        def note(message: str) -> None:
+            if on_progress is not None and message:
+                on_progress(message)
+
         while state.steps_taken < state.max_steps:
 
             print(
@@ -20,7 +39,11 @@ class ResearchAgent:
                 f"Step {state.steps_taken + 1}/{state.max_steps}"
             )
 
-            decision = self.plan_next_action(state)
+            note(
+                f"Choosing what to look up next on {state.company_name} "
+                f"({state.steps_taken + 1}/{state.max_steps})"
+            )
+            decision = self.plan_next_action(state, on_progress=on_progress)
 
             print(
                 f"[Research Agent] "
@@ -31,9 +54,12 @@ class ResearchAgent:
                 f"[Research Agent] "
                 f"Reasoning: {decision.reasoning}"
             )
+            for line in reason_lines(decision.reasoning, limit=3):
+                note(line)
 
             if decision.action == "finish":
                 print("[Research Agent] Research complete.")
+                note(f"We have enough on {state.company_name} to write a briefing")
                 break
 
             if decision.action != "search":
@@ -60,21 +86,30 @@ class ResearchAgent:
                     "[Research Agent] "
                     "Duplicate query detected. Finishing."
                 )
+                note("We already checked that, moving on")
                 break
 
             print(
                 f"[Research Agent] "
                 f"Searching: {query}"
             )
+            note(f"Looking up “{query}”")
 
             results = self.search_tool.execute(
                 query=query,
                 max_results=3,
             )
+            note(
+                f"Found {len(results)} article"
+                f"{'' if len(results) == 1 else 's'} on {state.company_name}"
+            )
 
             evaluated_results = []
 
             for result in results:
+                title = _one_line(getattr(result, "title", "") or "", 80)
+                if title:
+                    note(f"Reading {title}")
                 evaluated = self.evaluator.evaluate(
                     evidence=result,
                     research_goal=state.research_goal,
@@ -90,12 +125,31 @@ class ResearchAgent:
                 f"[Research Agent] "
                 f"Collected {len(results)} evidence items."
             )
+            useful = [
+                item
+                for item in evaluated_results
+                if item.relevance >= 0.35
+            ]
+            if useful:
+                best = max(useful, key=lambda item: item.relevance)
+                note(
+                    f"Why: {len(useful)} of {len(evaluated_results)} "
+                    f"look useful for the pitch; best is "
+                    f"“{_one_line(best.title, 70)}”"
+                )
+            else:
+                note(
+                    f"Why: not much here that helps you sell to "
+                    f"{state.company_name}"
+                )
+            note(f"Seeing what matters for the {state.company_name} pitch")
 
         if state.steps_taken >= state.max_steps:
             print(
                 "\n[Research Agent] "
                 "Maximum research steps reached."
             )
+            note(f"Wrapped up the {state.company_name} research")
 
         if state.evidence:
             average_relevance = sum(
@@ -127,6 +181,7 @@ class ResearchAgent:
     def plan_next_action(
         self,
         state: ResearchState,
+        on_progress: Callable[[str], None] | None = None,
     ) -> ResearchDecision:
 
         evidence_summary = "\n".join(
@@ -201,19 +256,20 @@ class ResearchAgent:
     {{
     "action": "search" or "finish",
     "query": "search query or null",
-    "reasoning": "brief explanation"
+    "reasoning": "2-3 sentences: what you already know, what is still missing, and why this next action"
     }}
     """
 
         response = self.llm.generate(
             prompt=prompt,
             temperature=0.0,
-            max_tokens=300,
+            max_tokens=400,
         )
+        if on_progress is not None:
+            for line in reason_lines(extract_think(response), limit=2):
+                on_progress(line)
 
-        return ResearchDecision.model_validate_json(
-            response
-        )
+        return parse_model(ResearchDecision, response)
 
     def _is_duplicate_query(
         self,

@@ -85,7 +85,7 @@ cd ..
 ./run_app.sh
 ```
 
-UI is http://localhost:3000. API is http://localhost:8000. After you upload the CSV, the form stages the parsed companies so you can review them before research starts. Max 5 MB per file. Outreach OTP is off unless `OTP_REQUIRED=true` in `.env`.
+UI is http://localhost:3000. API is http://localhost:8000. After you upload the CSV, the form stages the parsed companies so you can review them before research starts. Max 5 MB per file. The company site is suggested from the work-email domain and can be overwritten. Outreach email is asked later, at engagement. Until signup exists, the form keeps this browser’s draft (details, list, step, last briefings) in local storage.
 
 UI / upload checks:
 

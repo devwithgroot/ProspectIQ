@@ -5,6 +5,7 @@ from tests.test_api import main as test_api
 from tests.test_catalog import main as test_catalog
 from tests.test_email_verify import main as test_email_verify
 from tests.test_prospect_upload import main as test_prospect_upload
+from tests.test_research_jobs import main as test_research_jobs
 from tests.test_ui import main as test_ui
 
 
@@ -14,6 +15,7 @@ TESTS = [
     ("email verify", test_email_verify),
     ("ui", test_ui),
     ("api", test_api),
+    ("research jobs", test_research_jobs),
 ]
 
 

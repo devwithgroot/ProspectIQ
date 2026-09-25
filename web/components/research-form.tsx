@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { CheckIcon, FileSpreadsheetIcon, UploadIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -40,40 +40,69 @@ import {
   type Catalog,
 } from "@/lib/catalog"
 import {
+  activityFromJob,
   estimateResearch,
-  formatElapsed,
   formatEstimateRange,
-  formatMinutesLeft,
-  researchTimeoutMs,
+  researchActivity,
+  waitingHint,
 } from "@/lib/research-estimate"
+import { fetchResearchJob, sleep } from "@/lib/research-job"
 import {
+  useResearchHydrated,
   useResearchStore,
   validateCurrentYouDetails,
 } from "@/lib/research-store"
-import { fetchSettings } from "@/lib/settings"
 import type {
   ProspectReport,
+  ResearchJob,
   ResearchResult,
   StagedProspect,
   StagingPreview,
 } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import {
+  filledStagedCompanies,
+  formatIndiaPhone,
+  isEmail,
+  localPhoneDigits,
   validateBriefing,
-  validateStagedCompany,
+  validateFullName,
+  validatePhone,
   validateUploadFile,
-  validateVerifyCode,
+  validateWorkEmail,
+  websiteFromEmail,
 } from "@/lib/validators"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+
+function firstFieldSelector(stepIndex: number): string {
+  if (stepIndex === 0) return "#full_name"
+  if (stepIndex === 1) return "#industry"
+  if (stepIndex === 2) return "#website"
+  return '[data-sheet-cell="0-0"]'
+}
+
+function onEnterKey(
+  event: KeyboardEvent<HTMLElement>,
+  next: string | (() => void)
+) {
+  if (event.key !== "Enter" || event.nativeEvent.isComposing) {
+    return
+  }
+  event.preventDefault()
+  if (typeof next === "string") {
+    document.getElementById(next)?.focus()
+    return
+  }
+  next()
+}
 
 const STEPS = [
   {
     id: "you",
     title: "You",
     heading: "Tell us who you are",
-    description:
-      "Work email is how we know you. Outreach email is what prospects will see.",
+    description: "A few details so we know who is running this research.",
   },
   {
     id: "role",
@@ -87,14 +116,13 @@ const STEPS = [
     title: "Company",
     heading: "Your company website",
     description:
-      "We’ll read the public site and learn what you sell. No login needed.",
+      "We’ll suggest this from your work email. Change it if that’s not the site.",
   },
   {
     id: "prospects",
     title: "Prospects",
-    heading: "Upload the companies you care about",
-    description:
-      "We’ll research each company and score how well they fit what you sell.",
+    heading: "Companies you want researched",
+    description: "Type the list, or upload a spreadsheet.",
   },
 ] as const
 
@@ -103,63 +131,53 @@ export function ResearchForm() {
   const {
     step,
     notice,
-    otpError,
     pending,
+    jobId,
+    job,
     result,
     catalog,
-    otpRequired,
     fullName,
     phone,
     email,
-    outreachEmail,
-    differentOutreach,
-    outreachVerified,
-    otpOpen,
-    verifyCode,
-    verifyBusy,
     industry,
     title,
     website,
     file,
     staging,
     previewBusy,
+    prospectsMode,
     showError,
-    showOtpError,
     clearMessages,
     validateStep,
     setStep,
     setNotice,
-    setOtpError,
     setPending,
+    setJobId,
+    setJob,
     setResult,
     setCatalog,
-    setOtpRequired,
     setFullName,
     setPhone,
     setEmail,
-    setOutreachEmail,
-    setDifferentOutreach,
-    setOutreachVerified,
-    setOtpOpen,
-    setVerifyCode,
-    setVerifyBusy,
     setIndustry,
     setTitle,
     setWebsite,
+    applySuggestedWebsite,
     setFile,
     setStaging,
     setPreviewBusy,
+    setProspectsMode,
     startOver,
   } = store
+  const hydrated = useResearchHydrated()
+  const [youShowErrors, setYouShowErrors] = useState(false)
+  const [focusStep, setFocusStep] = useState<number | null>(null)
 
   useEffect(() => {
     fetchCatalog()
       .then(setCatalog)
       .catch(() => setCatalog(bundledCatalog))
-    fetchSettings()
-      .then((settings) => setOtpRequired(settings.otp_required))
-      .catch(() => setOtpRequired(false))
-  }, [setCatalog, setOtpRequired])
+  }, [setCatalog])
 
   useEffect(() => {
     if (result) {
@@ -170,9 +188,120 @@ export function ResearchForm() {
     }
   }, [result])
 
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    if (step === STEPS.length - 1 && !staging) {
+      setStaging(emptySheet())
+    }
+  }, [hydrated, step, staging, setStaging])
+
+  useEffect(() => {
+    if (!hydrated || !jobId) {
+      return
+    }
+
+    let cancelled = false
+    setPending(true)
+
+    async function watchJob(id: string) {
+      let failures = 0
+      while (!cancelled) {
+        try {
+          const next = await fetchResearchJob(id)
+          if (cancelled) {
+            return
+          }
+          failures = 0
+          setJob(next)
+          if (next.status === "done" && next.result) {
+            setResult(next.result)
+            setJobId(null)
+            setJob(null)
+            setPending(false)
+            return
+          }
+          if (next.status === "error" || next.status === "lost") {
+            showError(next.error || "We couldn’t finish research.")
+            setJobId(null)
+            setJob(null)
+            setPending(false)
+            return
+          }
+        } catch (err) {
+          failures += 1
+          if (failures >= 8) {
+            showError(err)
+            return
+          }
+        }
+        await sleep(800)
+      }
+    }
+
+    void watchJob(jobId)
+    return () => {
+      cancelled = true
+    }
+  }, [
+    hydrated,
+    jobId,
+    setJob,
+    setJobId,
+    setPending,
+    setResult,
+    showError,
+  ])
+
+  useEffect(() => {
+    if (focusStep === null || focusStep !== step) {
+      return
+    }
+    if (step === STEPS.length - 1 && prospectsMode === "grid" && !staging) {
+      return
+    }
+
+    let cancelled = false
+    const focusFirstField = () => {
+      if (cancelled) {
+        return false
+      }
+      const node = document.querySelector<HTMLElement>(firstFieldSelector(step))
+      if (!node) {
+        return false
+      }
+      node.focus()
+      if (
+        step !== STEPS.length - 1 &&
+        (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement)
+      ) {
+        node.select()
+      }
+      return document.activeElement === node
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      if (focusFirstField()) {
+        setFocusStep(null)
+      }
+    })
+    const retry = window.setTimeout(() => {
+      if (focusFirstField()) {
+        setFocusStep(null)
+      }
+    }, 50)
+
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(retry)
+    }
+  }, [focusStep, step, staging, prospectsMode])
+
   const titleOptions = titlesForIndustry(catalog, industry)
   const current = STEPS[step]
-  const outreach = store.outreach()
+  const suggestedWebsite = websiteFromEmail(email)
 
   function selectStep(index: number) {
     if (index === step) return
@@ -191,7 +320,15 @@ export function ResearchForm() {
       }
     }
     clearMessages()
+    prepareStep(index)
     setStep(index)
+    setFocusStep(index)
+  }
+
+  function prepareStep(index: number) {
+    if (index === STEPS.length - 1 && !staging) {
+      setStaging(emptySheet())
+    }
   }
 
   async function goNext() {
@@ -208,87 +345,24 @@ export function ResearchForm() {
       }
     }
     clearMessages()
-    setStep((currentStep) => Math.min(currentStep + 1, STEPS.length - 1))
+    const next = Math.min(step + 1, STEPS.length - 1)
+    prepareStep(next)
+    setStep(next)
+    setFocusStep(next)
   }
 
   async function finishYouStep(): Promise<boolean> {
     const problem = validateCurrentYouDetails()
     if (problem) {
-      showError(problem)
+      setYouShowErrors(true)
       return false
     }
-    if (!otpRequired || outreachVerified) {
-      return true
-    }
-    await sendOutreachCode()
-    return false
-  }
-
-  async function sendOutreachCode(): Promise<boolean> {
-    const problem = validateCurrentYouDetails()
-    if (problem) {
-      showError(problem)
-      return false
-    }
-    setVerifyBusy(true)
-    setOtpError(null)
-    setOtpOpen(true)
-    try {
-      const response = await fetch(`${API_URL}/api/verify-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: outreach }),
-      })
-      const payload = await response.json().catch(() => null)
-      if (!response.ok) {
-        throw payload ?? new Error("We couldn’t send a code.")
-      }
-      setVerifyCode("")
-      return true
-    } catch (err) {
-      showOtpError(err)
-      return false
-    } finally {
-      setVerifyBusy(false)
-    }
-  }
-
-  async function confirmOutreachCode(): Promise<void> {
-    const problem = validateVerifyCode(verifyCode)
-    if (problem) {
-      showOtpError(problem)
-      return
-    }
-    setVerifyBusy(true)
-    setOtpError(null)
-    try {
-      const response = await fetch(`${API_URL}/api/verify-email/confirm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: outreach, code: verifyCode.trim() }),
-      })
-      const payload = await response.json().catch(() => null)
-      if (!response.ok) {
-        throw payload ?? new Error("That code didn’t work.")
-      }
-      setOutreachVerified(true)
-      setOtpOpen(false)
-      setOtpError(null)
-      setVerifyCode("")
-      setStep((currentStep) => Math.min(currentStep + 1, STEPS.length - 1))
-    } catch (err) {
-      showOtpError(err)
-    } finally {
-      setVerifyBusy(false)
-    }
+    setYouShowErrors(false)
+    return true
   }
 
   function goBack() {
     clearMessages()
-    if (step === STEPS.length - 1 && staging) {
-      setStaging(null)
-      return
-    }
     setStep((currentStep) => Math.max(currentStep - 1, 0))
   }
 
@@ -319,6 +393,7 @@ export function ResearchForm() {
         throw payload ?? new Error("We couldn’t read that file.")
       }
       setStaging(withRowIds(payload as StagingPreview))
+      setProspectsMode("grid")
     } catch (err) {
       showError(err)
     } finally {
@@ -328,68 +403,93 @@ export function ResearchForm() {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const problem = validateStep(step)
-    if (problem) {
-      showError(problem)
+    if (step !== STEPS.length - 1) {
       return
     }
-    if (!staging || staging.companies.length === 0) {
-      showError("Add at least one company before starting research.")
+    const companies = filledStagedCompanies(staging)
+    if (companies.length === 0) {
       return
     }
 
     clearMessages()
     setResult(null)
+    setJob(null)
     setPending(true)
 
     const data = new FormData()
     data.set("full_name", fullName.trim())
-    data.set("phone", phone.trim())
+    data.set("phone", formatIndiaPhone(phone))
     data.set("email", email.trim())
-    data.set("outreach_email", outreach)
+    data.set("outreach_email", email.trim())
     data.set("industry", industry)
     data.set("title", title)
     data.set("website", website.trim())
-    data.set("prospects", fileFromStaging(staging))
+    data.set(
+      "prospects",
+      fileFromStaging({
+        file_name: staging?.file_name || "prospects.csv",
+        count: companies.length,
+        companies,
+      })
+    )
 
     try {
-      const estimate = estimateResearch(staging?.count ?? 1)
       const response = await fetch(`${API_URL}/api/research`, {
         method: "POST",
         body: data,
-        signal: AbortSignal.timeout(researchTimeoutMs(estimate)),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok) {
-        throw payload ?? new Error("We couldn’t finish research.")
+        throw payload ?? new Error("We couldn’t start research.")
       }
-      setResult(payload as ResearchResult)
+      const started = payload as { job_id?: string }
+      if (!started.job_id) {
+        throw new Error("We couldn’t start research.")
+      }
+      setJobId(started.job_id)
     } catch (err) {
-      showError(err)
-    } finally {
       setPending(false)
+      showError(err)
     }
   }
 
+  const filledCompanies = filledStagedCompanies(staging)
   const heading =
-    current.id === "prospects" && staging
+    current.id === "prospects" && filledCompanies.length
       ? "Review this list"
       : current.heading
-  const estimate = estimateResearch(staging?.count ?? 1)
+  const estimate = estimateResearch(filledCompanies.length || 1)
   const description =
-    current.id === "prospects" && staging
-      ? `${staging.count} compan${staging.count === 1 ? "y" : "ies"} from ${staging.file_name}. Research usually takes ${formatEstimateRange(estimate)}, including a little extra time.`
+    current.id === "prospects" && filledCompanies.length
+      ? `${filledCompanies.length} compan${filledCompanies.length === 1 ? "y" : "ies"}${staging?.file_name && staging.file_name !== "prospects.csv" ? ` from ${staging.file_name}` : ""}. Research usually takes ${formatEstimateRange(estimate)}, including a little extra time.`
       : current.description
+
+  if (!hydrated) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8 sm:py-10">
+        <div className="space-y-2">
+          <h1 className="font-heading text-2xl tracking-tight sm:text-3xl">
+            Research your prospects
+          </h1>
+          <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+            Four short steps. We’ll learn your company from your website, then
+            brief you on every company in your list.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8 sm:py-10">
       <div className="space-y-2">
         <h1 className="font-heading text-2xl tracking-tight sm:text-3xl">
-          Research your prospects
+          {pending ? "Researching your prospects" : "Research your prospects"}
         </h1>
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-          Four short steps. We’ll learn your company from your website, then
-          brief you on every company in your list.
+          {pending
+            ? "You can refresh this page. Research keeps running, and we’ll continue from here."
+            : "Four short steps. We’ll learn your company from your website, then brief you on every company in your list."}
         </p>
       </div>
 
@@ -399,6 +499,18 @@ export function ResearchForm() {
           onChange={setResult}
           onStartOver={startOver}
         />
+      ) : pending ? (
+        <Card>
+          <CardContent className="pt-6">
+            <ResearchingState
+              companies={
+                job?.companies ??
+                filledCompanies.map((row) => row.company_name)
+              }
+              job={job}
+            />
+          </CardContent>
+        </Card>
       ) : (
         <>
       <StepNav step={step} onSelect={selectStep} />
@@ -414,24 +526,17 @@ export function ResearchForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {pending ? (
-            <ResearchingState companyCount={staging?.count ?? 1} />
-          ) : (
             <form className="space-y-6" onSubmit={onSubmit}>
               {current.id === "you" ? (
                 <YouSection
                   fullName={fullName}
                   phone={phone}
                   email={email}
-                  outreachEmail={outreachEmail}
-                  differentOutreach={differentOutreach}
-                  outreachVerified={outreachVerified}
-                  otpRequired={otpRequired}
+                  showErrors={youShowErrors}
                   onFullName={setFullName}
                   onPhone={setPhone}
                   onEmail={setEmail}
-                  onOutreachEmail={setOutreachEmail}
-                  onDifferentOutreach={setDifferentOutreach}
+                  onContinue={() => void goNext()}
                 />
               ) : null}
               {current.id === "role" ? (
@@ -442,10 +547,17 @@ export function ResearchForm() {
                   titleOptions={titleOptions}
                   onIndustry={setIndustry}
                   onTitle={setTitle}
+                  onContinue={() => void goNext()}
                 />
               ) : null}
               {current.id === "company" ? (
-                <CompanySection website={website} onWebsite={setWebsite} />
+                <CompanySection
+                  website={website}
+                  suggested={suggestedWebsite}
+                  onWebsite={setWebsite}
+                  onUseSuggested={applySuggestedWebsite}
+                  onContinue={() => void goNext()}
+                />
               ) : null}
               {current.id === "prospects" ? (
                 <ProspectsSection
@@ -455,23 +567,23 @@ export function ResearchForm() {
                   summary={{
                     fullName,
                     email,
-                    outreachEmail: outreach,
                     industry,
                     title,
                     website,
                   }}
+                  mode={prospectsMode}
+                  onMode={setProspectsMode}
                   onFile={(next) => void previewFile(next)}
                   onEditDetails={() => {
                     clearMessages()
                     setStep(0)
                   }}
                   onStagingChange={setStaging}
-                  onError={showError}
                 />
               ) : null}
 
               <div className="flex flex-wrap items-center justify-between gap-3">
-                {step > 0 || staging ? (
+                {step > 0 ? (
                   <Button type="button" variant="outline" onClick={goBack}>
                     Back
                   </Button>
@@ -479,14 +591,10 @@ export function ResearchForm() {
                   <span />
                 )}
                 {step < STEPS.length - 1 ? (
-                  <Button
-                    type="button"
-                    onClick={() => void goNext()}
-                    disabled={verifyBusy}
-                  >
-                    {otpRequired && !outreachVerified ? "Send code" : "Continue"}
+                  <Button type="button" onClick={() => void goNext()}>
+                    Continue
                   </Button>
-                ) : staging ? (
+                ) : filledCompanies.length > 0 ? (
                   <div className="flex flex-col items-end gap-1">
                     <Button type="submit" size="lg">
                       Start research
@@ -495,7 +603,7 @@ export function ResearchForm() {
                       Usually {formatEstimateRange(estimate)}
                     </p>
                   </div>
-                ) : (
+                ) : prospectsMode === "upload" ? (
                   <Button
                     type="button"
                     size="lg"
@@ -510,17 +618,20 @@ export function ResearchForm() {
                   >
                     {previewBusy ? "Reading file…" : "Review list"}
                   </Button>
+                ) : (
+                  <Button type="button" size="lg" disabled>
+                    Start research
+                  </Button>
                 )}
               </div>
             </form>
-          )}
         </CardContent>
       </Card>
         </>
       )}
 
       <Dialog
-        open={notice !== null && !otpOpen}
+        open={notice !== null}
         onOpenChange={(open) => {
           if (!open) {
             setNotice(null)
@@ -535,57 +646,6 @@ export function ResearchForm() {
           <DialogFooter className="flex-row justify-end">
             <Button type="button" onClick={() => setNotice(null)}>
               OK
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={otpOpen}
-        onOpenChange={(open) => {
-          setOtpOpen(open)
-          if (!open) {
-            setVerifyCode("")
-            setOtpError(null)
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enter the code</DialogTitle>
-            <DialogDescription>
-              We sent a 6-digit code to {outreach || "that inbox"}. Outreach
-              will come from this address later.
-            </DialogDescription>
-          </DialogHeader>
-          <Field
-            id="verify_code"
-            name="verify_code"
-            label="Verification code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="123456"
-            value={verifyCode}
-            onChange={(event) => setVerifyCode(event.target.value)}
-          />
-          {otpError ? (
-            <p className="text-sm leading-6 text-destructive">{otpError}</p>
-          ) : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void sendOutreachCode()}
-              disabled={verifyBusy}
-            >
-              Resend
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void confirmOutreachCode()}
-              disabled={verifyBusy}
-            >
-              {verifyBusy ? "Checking…" : "Verify"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -605,13 +665,38 @@ function withRowIds(preview: StagingPreview): StagingPreview {
   }
 }
 
+let sheetRow = 0
+
 function blankStagedCompany(): StagedProspect {
+  sheetRow += 1
   return {
-    id: `new-${Date.now()}`,
+    id: `row-${sheetRow}`,
     company_name: "",
     website: null,
     notes: null,
   }
+}
+
+function emptySheet(fileName = "prospects.csv"): StagingPreview {
+  return {
+    file_name: fileName,
+    count: 0,
+    companies: [blankStagedCompany()],
+  }
+}
+
+function withSheetCount(staging: StagingPreview): StagingPreview {
+  return {
+    ...staging,
+    count: staging.companies.filter((row) => row.company_name.trim()).length,
+  }
+}
+
+function addSheetRow(staging: StagingPreview): StagingPreview {
+  return withSheetCount({
+    ...staging,
+    companies: [...staging.companies, blankStagedCompany()],
+  })
 }
 
 function upsertStagedCompany(
@@ -636,6 +721,22 @@ function removeStagedCompany(
 ): StagingPreview {
   const companies = staging.companies.filter((item) => item.id !== id)
   return { ...staging, companies, count: companies.length }
+}
+
+function isBlankRow(row: StagedProspect): boolean {
+  return (
+    !row.company_name.trim() &&
+    !row.website?.trim() &&
+    !row.notes?.trim()
+  )
+}
+
+function removeBlankRows(staging: StagingPreview): StagingPreview {
+  const companies = staging.companies.filter((row) => !isBlankRow(row))
+  if (companies.length === 0) {
+    return emptySheet(staging.file_name)
+  }
+  return withSheetCount({ ...staging, companies })
 }
 
 function csvCell(value: string): string {
@@ -894,30 +995,37 @@ function YouSection({
   fullName,
   phone,
   email,
-  outreachEmail,
-  differentOutreach,
-  outreachVerified,
-  otpRequired,
+  showErrors,
   onFullName,
   onPhone,
   onEmail,
-  onOutreachEmail,
-  onDifferentOutreach,
+  onContinue,
 }: {
   fullName: string
   phone: string
   email: string
-  outreachEmail: string
-  differentOutreach: boolean
-  outreachVerified: boolean
-  otpRequired: boolean
+  showErrors: boolean
   onFullName: (value: string) => void
   onPhone: (value: string) => void
   onEmail: (value: string) => void
-  onOutreachEmail: (value: string) => void
-  onDifferentOutreach: (value: boolean) => void
+  onContinue: () => void
 }) {
-  const outreach = differentOutreach ? outreachEmail : email
+  const [touched, setTouched] = useState({
+    fullName: false,
+    phone: false,
+    email: false,
+  })
+
+  const nameError =
+    showErrors || touched.fullName ? validateFullName(fullName) : null
+  const phoneError =
+    showErrors || touched.phone || localPhoneDigits(phone).length === 10
+      ? validatePhone(phone)
+      : null
+  const emailError =
+    showErrors || touched.email || isEmail(email)
+      ? validateWorkEmail(email)
+      : null
 
   return (
     <div className="space-y-4">
@@ -927,18 +1035,20 @@ function YouSection({
           name="full_name"
           label="Full name"
           placeholder="Priya Mehta"
+          autoComplete="name"
           value={fullName}
+          error={nameError}
           onChange={(event) => onFullName(event.target.value)}
+          onBlur={() => setTouched((current) => ({ ...current, fullName: true }))}
+          onKeyDown={(event) => onEnterKey(event, "phone")}
           required
         />
-        <Field
-          id="phone"
-          name="phone"
-          label="Phone"
-          placeholder="+91 98455 12210"
+        <PhoneField
           value={phone}
-          onChange={(event) => onPhone(event.target.value)}
-          required
+          error={phoneError}
+          onChange={onPhone}
+          onBlur={() => setTouched((current) => ({ ...current, phone: true }))}
+          onKeyDown={(event) => onEnterKey(event, "email")}
         />
       </div>
       <Field
@@ -946,49 +1056,15 @@ function YouSection({
         name="email"
         label="Work email"
         type="email"
+        autoComplete="email"
         placeholder="you@company.com"
-        hint="This is your login identity. It can stay different from outreach."
         value={email}
+        error={emailError}
         onChange={(event) => onEmail(event.target.value)}
+        onBlur={() => setTouched((current) => ({ ...current, email: true }))}
+        onKeyDown={(event) => onEnterKey(event, onContinue)}
         required
       />
-      <label className="flex items-start gap-2.5 text-sm leading-6">
-        <input
-          type="checkbox"
-          className="mt-1 size-4 accent-foreground"
-          checked={differentOutreach}
-          onChange={(event) => onDifferentOutreach(event.target.checked)}
-        />
-        <span>Use a different email when we write to prospects</span>
-      </label>
-      {differentOutreach ? (
-        <Field
-          id="outreach_email"
-          name="outreach_email"
-          label="Outreach email"
-          type="email"
-          placeholder="you.sales@company.com"
-          hint={
-            otpRequired
-              ? "Prospects will see this as the from-address. We’ll send a code to confirm it."
-              : "Prospects will see this as the from-address."
-          }
-          value={outreachEmail}
-          onChange={(event) => onOutreachEmail(event.target.value)}
-          required
-        />
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          {`Outreach will use ${email || "your work email"}${
-            otpRequired ? " after we send a code there." : "."
-          }`}
-        </p>
-      )}
-      {otpRequired && outreachVerified ? (
-        <p className="text-sm font-medium">
-          {outreach} is verified for outreach.
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -1000,6 +1076,7 @@ function RoleSection({
   titleOptions,
   onIndustry,
   onTitle,
+  onContinue,
 }: {
   catalog: Catalog
   industry: string
@@ -1007,6 +1084,7 @@ function RoleSection({
   titleOptions: { id: string; label: string; group: string }[]
   onIndustry: (value: string) => void
   onTitle: (value: string) => void
+  onContinue: () => void
 }) {
   return (
     <div className="space-y-4">
@@ -1014,13 +1092,18 @@ function RoleSection({
         id="industry"
         name="industry"
         label="Industry"
+        autoFocus
         value={industry}
         options={catalog.industries}
         placeholder="Start typing, for example Manufacturing"
         emptyText="No industry matches that."
-        hint="This is your company’s industry, not your customer’s."
         required
         onChange={onIndustry}
+        onAdvance={() => {
+          window.requestAnimationFrame(() => {
+            document.getElementById("title")?.focus()
+          })
+        }}
       />
       <Combobox
         id="title"
@@ -1030,18 +1113,14 @@ function RoleSection({
         options={titleOptions}
         placeholder={
           industry
-            ? "Start typing, for example Account Executive"
+            ? "Type SDR, AE, or the full title"
             : "Choose an industry first"
         }
         emptyText="No title matches that in this industry."
-        hint={
-          industry
-            ? `Showing titles commonly used in ${industry}.`
-            : undefined
-        }
         disabled={!industry}
         required
         onChange={onTitle}
+        onAdvance={onContinue}
       />
     </div>
   )
@@ -1049,22 +1128,140 @@ function RoleSection({
 
 function CompanySection({
   website,
+  suggested,
   onWebsite,
+  onUseSuggested,
+  onContinue,
 }: {
   website: string
+  suggested: string | null
   onWebsite: (value: string) => void
+  onUseSuggested: () => void
+  onContinue: () => void
 }) {
   return (
-    <Field
-      id="website"
-      name="website"
-      label="Company website"
-      placeholder="yourcompany.com"
-      hint="We’ll add https:// if you leave it off."
-      value={website}
-      onChange={(event) => onWebsite(event.target.value)}
-      required
-    />
+    <div className="space-y-3">
+      <Field
+        id="website"
+        name="website"
+        label="Company website"
+        placeholder={suggested ?? "yourcompany.com"}
+        value={website}
+        onChange={(event) => onWebsite(event.target.value)}
+        onKeyDown={(event) => onEnterKey(event, onContinue)}
+        autoFocus
+        required
+      />
+      {suggested && website !== suggested ? (
+        <button
+          type="button"
+          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          onClick={onUseSuggested}
+        >
+          Use {suggested}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function sheetCell(row: StagedProspect, col: number): string {
+  if (col === 0) return row.company_name
+  if (col === 1) return row.website ?? ""
+  return row.notes ?? ""
+}
+
+function setSheetCell(
+  row: StagedProspect,
+  col: number,
+  value: string
+): StagedProspect {
+  if (col === 0) return { ...row, company_name: value }
+  if (col === 1) return { ...row, website: value }
+  return { ...row, notes: value }
+}
+
+function isSheetHeader(cells: string[]): boolean {
+  const first = cells[0]?.trim().toLowerCase()
+  return (
+    first === "company_name" ||
+    first === "company" ||
+    first === "company name"
+  )
+}
+
+function parseSheetPaste(text: string): string[][] {
+  const rows = text
+    .replace(/\r/g, "")
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => line.split("\t"))
+  if (rows[0] && isSheetHeader(rows[0])) {
+    return rows.slice(1)
+  }
+  return rows
+}
+
+function applySheetPaste(
+  staging: StagingPreview,
+  startRow: number,
+  startCol: number,
+  pasted: string[][]
+): StagingPreview {
+  const companies = staging.companies.map((row) => ({ ...row }))
+  pasted.forEach((cells, rowOffset) => {
+    const index = startRow + rowOffset
+    while (companies.length <= index) {
+      companies.push(blankStagedCompany())
+    }
+    cells.forEach((cell, colOffset) => {
+      const col = startCol + colOffset
+      if (col > 2) {
+        return
+      }
+      companies[index] = setSheetCell(companies[index], col, cell)
+    })
+  })
+  return withSheetCount({
+    ...staging,
+    companies,
+  })
+}
+
+function focusSheetCell(row: number, col: number) {
+  document
+    .querySelector<HTMLInputElement>(`[data-sheet-cell="${row}-${col}"]`)
+    ?.focus()
+}
+
+function SellerSummary({
+  summary,
+  onEditDetails,
+}: {
+  summary: {
+    fullName: string
+    email: string
+    industry: string
+    title: string
+    website: string
+  }
+  onEditDetails: () => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3 text-sm leading-6">
+      <div>
+        <p className="font-medium">
+          {summary.fullName} · {summary.title}
+        </p>
+        <p className="text-muted-foreground">
+          {summary.industry} · {summary.email}
+        </p>
+        <p className="text-muted-foreground">{summary.website}</p>
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={onEditDetails}>
+        Edit
+      </Button>
+    </div>
   )
 }
 
@@ -1072,150 +1269,60 @@ function ProspectsSection({
   file,
   staging,
   previewBusy,
+  mode,
   summary,
+  onMode,
   onFile,
   onEditDetails,
   onStagingChange,
-  onError,
 }: {
   file: File | null
   staging: StagingPreview | null
   previewBusy: boolean
+  mode: "grid" | "upload"
   summary: {
     fullName: string
     email: string
-    outreachEmail: string
     industry: string
     title: string
     website: string
   }
+  onMode: (mode: "grid" | "upload") => void
   onFile: (file: File | null) => void
   onEditDetails: () => void
   onStagingChange: (next: StagingPreview) => void
-  onError: (raw: unknown) => void
 }) {
   const [over, setOver] = useState(false)
-  const [editing, setEditing] = useState<StagedProspect | null>(null)
+  const sheet = staging ?? emptySheet()
 
-  if (staging) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-3 rounded-xl bg-muted/60 px-4 py-3 text-sm leading-6">
-          <div>
-            <p className="font-medium">
-              {summary.fullName} · {summary.title}
-            </p>
-            <p className="text-muted-foreground">
-              {summary.industry} · Outreach {summary.outreachEmail}
-            </p>
-            <p className="text-muted-foreground">{summary.website}</p>
-          </div>
-          <Button type="button" variant="ghost" size="sm" onClick={onEditDetails}>
-            Edit
-          </Button>
-        </div>
-        <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Company</TableHead>
-                <TableHead>Website</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="w-28 text-right"> </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {staging.companies.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="font-medium whitespace-normal">
-                    {row.company_name}
-                  </TableCell>
-                  <TableCell className="whitespace-normal text-muted-foreground">
-                    {row.website || "—"}
-                  </TableCell>
-                  <TableCell className="max-w-xs whitespace-normal text-muted-foreground">
-                    {row.notes || "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                        onClick={() => setEditing(row)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                        onClick={() =>
-                          onStagingChange(removeStagedCompany(staging, row.id))
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="flex flex-wrap items-center gap-4 text-sm">
-          <button
-            type="button"
-            className="text-muted-foreground underline-offset-4 hover:underline"
-            onClick={() => {
-              const blank = blankStagedCompany()
-              onStagingChange(upsertStagedCompany(staging, blank))
-              setEditing(blank)
-            }}
-          >
-            Add a company
-          </button>
-          <label className="text-muted-foreground underline-offset-4 hover:underline">
-            <span className="cursor-pointer">Replace file</span>
-            <Input
-              id="prospects-replace"
-              name="prospects"
-              type="file"
-              accept=".csv,text/csv"
-              className="sr-only"
-              onChange={(event) => onFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
-        </div>
-        <CompanyEditDialog
-          row={editing}
-          onClose={() => setEditing(null)}
-          onSave={(next) => {
-            const problem = validateStagedCompany(next)
-            if (problem) {
-              onError(problem)
-              return
-            }
-            onStagingChange(upsertStagedCompany(staging, next))
-            setEditing(null)
-          }}
-        />
-      </div>
+  function updateRow(index: number, col: number, value: string) {
+    const companies = sheet.companies.map((row, rowIndex) =>
+      rowIndex === index ? setSheetCell(row, col, value) : row
+    )
+    onStagingChange(
+      withSheetCount({
+        ...sheet,
+        file_name: sheet.file_name || "prospects.csv",
+        companies,
+      })
     )
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl bg-muted/60 px-4 py-3 text-sm leading-6">
-        <p className="font-medium">
-          {summary.fullName} · {summary.title}
-        </p>
-        <p className="text-muted-foreground">
-          {summary.industry} · Outreach {summary.outreachEmail}
-        </p>
-        <p className="text-muted-foreground">{summary.website}</p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="prospects">Company list</Label>
+  if (mode === "upload") {
+    return (
+      <div className="space-y-4">
+        <SellerSummary summary={summary} onEditDetails={onEditDetails} />
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="prospects">Upload a spreadsheet</Label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onMode("grid")}
+          >
+            Type a list
+          </Button>
+        </div>
         <label
           htmlFor="prospects"
           onDragOver={(event) => {
@@ -1270,53 +1377,319 @@ function ProspectsSection({
           onChange={(event) => onFile(event.target.files?.[0] ?? null)}
         />
       </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <SellerSummary summary={summary} onEditDetails={onEditDetails} />
+      <div className="flex items-center justify-between gap-3">
+        <Label>Company list</Label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onMode("upload")}
+        >
+          <UploadIcon data-icon="inline-start" className="size-3.5" />
+          Upload
+        </Button>
+      </div>
+      <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">#</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Website</TableHead>
+              <TableHead>Notes</TableHead>
+              <TableHead className="w-16"> </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sheet.companies.map((row, rowIndex) => (
+              <TableRow key={row.id}>
+                <TableCell className="text-xs text-muted-foreground">
+                  {rowIndex + 1}
+                </TableCell>
+                {[0, 1, 2].map((col) => (
+                  <TableCell key={col} className="p-0">
+                    <Input
+                      data-sheet-cell={`${rowIndex}-${col}`}
+                      autoFocus={rowIndex === 0 && col === 0}
+                      value={sheetCell(row, col)}
+                      placeholder={
+                        col === 0
+                          ? "Company"
+                          : col === 1
+                            ? "company.com"
+                            : "Optional"
+                      }
+                      className="h-10 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+                      onChange={(event) =>
+                        updateRow(rowIndex, col, event.target.value)
+                      }
+                      onPaste={(event) => {
+                        const text = event.clipboardData.getData("text")
+                        if (!text.includes("\t") && !text.includes("\n")) {
+                          return
+                        }
+                        event.preventDefault()
+                        onStagingChange(
+                          applySheetPaste(
+                            sheet,
+                            rowIndex,
+                            col,
+                            parseSheetPaste(text)
+                          )
+                        )
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" || event.nativeEvent.isComposing) {
+                          return
+                        }
+                        event.preventDefault()
+                        const nextRow = event.shiftKey
+                          ? rowIndex - 1
+                          : rowIndex + 1
+                        if (nextRow < 0) {
+                          return
+                        }
+                        if (nextRow >= sheet.companies.length) {
+                          onStagingChange(addSheetRow(sheet))
+                        }
+                        window.requestAnimationFrame(() => {
+                          focusSheetCell(nextRow, col)
+                        })
+                      }}
+                    />
+                  </TableCell>
+                ))}
+                <TableCell className="text-right">
+                  {sheet.companies.length > 1 ? (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                      onClick={() => {
+                        const next = removeStagedCompany(sheet, row.id)
+                        onStagingChange(
+                          next.companies.length
+                            ? withSheetCount(next)
+                            : emptySheet(sheet.file_name)
+                        )
+                      }}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+          onClick={() => onStagingChange(addSheetRow(sheet))}
+        >
+          Add row
+        </button>
+        {sheet.companies.some(isBlankRow) &&
+        sheet.companies.some((row) => !isBlankRow(row)) ? (
+          <button
+            type="button"
+            className="text-sm text-muted-foreground underline-offset-4 hover:underline"
+            onClick={() => onStagingChange(removeBlankRows(sheet))}
+          >
+            Remove blank rows
+          </button>
+        ) : null}
+      </div>
     </div>
   )
 }
 
-function ResearchingState({ companyCount }: { companyCount: number }) {
-  const estimate = estimateResearch(companyCount)
-  const [elapsed, setElapsed] = useState(0)
+function isReasonLine(text: string): boolean {
+  return text.trim().toLowerCase().startsWith("why:")
+}
+
+function ProgressLine({
+  text,
+  active,
+  hint,
+}: {
+  text: string
+  active: boolean
+  hint?: string
+}) {
+  const reason = isReasonLine(text)
+  const body = reason ? text.replace(/^why:\s*/i, "") : text
+
+  if (reason) {
+    return (
+      <li
+        className={cn(
+          "ml-6 border-l-2 border-border pl-3 text-xs leading-5 italic",
+          active ? "text-foreground" : "text-muted-foreground"
+        )}
+      >
+        <span className="not-italic font-medium text-muted-foreground">
+          Because.{" "}
+        </span>
+        {body}
+        {active ? (
+          <span className="mt-1 block not-italic text-muted-foreground">
+            {hint}
+          </span>
+        ) : null}
+      </li>
+    )
+  }
+
+  return (
+    <li
+      className={cn(
+        "flex items-start gap-2",
+        active ? "font-medium" : "text-muted-foreground"
+      )}
+    >
+      {active ? (
+        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />
+      ) : (
+        <CheckIcon className="mt-0.5 size-3.5 shrink-0" />
+      )}
+      <span>
+        {body}
+        {active ? (
+          <>
+            <span className="inline-flex w-4 overflow-hidden">
+              <span className="animate-pulse">…</span>
+            </span>
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">
+              {hint}
+            </span>
+          </>
+        ) : null}
+      </span>
+    </li>
+  )
+}
+
+function ResearchingState({
+  companies,
+  job,
+}: {
+  companies: string[]
+  job: ResearchJob | null
+}) {
+  const estimate = estimateResearch(companies.length || 1)
+  const [now, setNow] = useState(Date.now())
+  const [localStart] = useState(() => Date.now())
+  const logRef = useRef<HTMLUListElement>(null)
 
   useEffect(() => {
-    const started = Date.now()
     const timer = window.setInterval(() => {
-      setElapsed(Math.floor((Date.now() - started) / 1000))
+      setNow(Date.now())
     }, 1000)
     return () => window.clearInterval(timer)
   }, [])
 
-  const typicalSeconds = estimate.typicalMinutes * 60
-  const remaining = typicalSeconds - elapsed
-  const progress = Math.min(90, Math.round((elapsed / typicalSeconds) * 100))
-  const companies =
-    companyCount === 1 ? "1 company" : `${companyCount} companies`
+  const elapsed = job
+    ? Math.max(
+        0,
+        Math.floor((now - (Date.parse(job.started_at) || now)) / 1000)
+      )
+    : Math.floor((now - localStart) / 1000)
+  const activity = job
+    ? activityFromJob(job, estimate.typicalMinutes, now)
+    : researchActivity(elapsed, companies, estimate.typicalMinutes)
+  const hint = waitingHint(activity.current, elapsed)
+
+  useEffect(() => {
+    const node = logRef.current
+    if (node) {
+      node.scrollTop = node.scrollHeight
+    }
+  }, [activity.done.length, activity.current, hint])
 
   return (
-    <div className="space-y-4 py-2 text-sm">
-      <div className="space-y-1">
-        <p className="font-medium">Research is running</p>
-        <p className="leading-6 text-muted-foreground">
-          First we learn your company from the website, then we brief each
-          company on the list. Usually {formatEstimateRange(estimate)} for{" "}
-          {companies}, including a little extra time. You can leave this tab
-          open.
-        </p>
+    <div className="space-y-5 py-1 text-sm">
+      <div className="space-y-2">
+        <div className="flex items-end justify-between gap-3">
+          <p className="font-medium">
+            {activity.percent === null ? "Starting…" : `${activity.percent}%`}
+          </p>
+          <p className="shrink-0 text-right text-muted-foreground">
+            {activity.timeLeft ?? "Starting research"}
+          </p>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-700"
+            style={{ width: `${activity.percent ?? 0}%` }}
+          />
+        </div>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${Math.max(6, progress)}%` }}
+      <ul
+        ref={logRef}
+        className="max-h-80 space-y-2 overflow-y-auto pr-1"
+      >
+        {activity.done.map((step, index) => (
+          <ProgressLine key={`${index}-${step}`} text={step} active={false} />
+        ))}
+        <ProgressLine text={activity.current} active hint={hint} />
+      </ul>
+    </div>
+  )
+}
+
+function PhoneField({
+  value,
+  error,
+  onChange,
+  onBlur,
+  onKeyDown,
+}: {
+  value: string
+  error: string | null
+  onChange: (value: string) => void
+  onBlur: () => void
+  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="phone">Phone</Label>
+      <div
+        className={cn(
+          "flex h-10 overflow-hidden rounded-lg border border-input bg-background transition-colors",
+          "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+          error &&
+            "border-destructive ring-3 ring-destructive/20 focus-within:border-destructive focus-within:ring-destructive/20"
+        )}
+      >
+        <span className="flex items-center px-3 text-sm text-muted-foreground select-none">
+          +91
+        </span>
+        <div className="w-px self-stretch bg-border" />
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel-national"
+          placeholder="9845512210"
+          className="h-full rounded-none border-0 bg-transparent focus-visible:border-0 focus-visible:ring-0"
+          value={value}
+          aria-invalid={Boolean(error)}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          required
         />
       </div>
-      <p className="text-muted-foreground">
-        {formatElapsed(elapsed)}
-        {remaining > 30
-          ? ` · usually about ${formatMinutesLeft(remaining)} left`
-          : elapsed > typicalSeconds
-            ? " · still working on the last companies"
-            : " · wrapping up"}
-      </p>
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
   )
 }
@@ -1326,13 +1699,22 @@ function Field({
   name,
   label,
   hint,
+  error,
   ...props
-}: React.ComponentProps<typeof Input> & { label: string; hint?: string }) {
+}: React.ComponentProps<typeof Input> & {
+  label: string
+  hint?: string
+  error?: string | null
+}) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} name={name} {...props} />
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      <Input id={id} name={name} aria-invalid={Boolean(error)} {...props} />
+      {error ? (
+        <p className="text-sm text-destructive">{error}</p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
     </div>
   )
 }
@@ -1372,8 +1754,7 @@ function Results({
             <p className="font-medium">
               {result.user.full_name} · {result.user.title}
             </p>
-            <p>Work {result.user.email}</p>
-            <p>Outreach {result.user.outreach_email}</p>
+            <p>{result.user.email}</p>
             <p>{result.user.company.industry}</p>
             <p>{result.user.company.website}</p>
             <p className="text-muted-foreground">

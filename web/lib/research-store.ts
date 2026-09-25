@@ -1,43 +1,47 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { create } from "zustand"
+import { createJSONStorage, persist } from "zustand/middleware"
 
 import { bundledCatalog, isAllowedTitle, type Catalog } from "@/lib/catalog"
-import type { ResearchResult, StagingPreview } from "@/lib/types"
+import type { ResearchJob, ResearchResult, StagingPreview } from "@/lib/types"
 import { userNotice, type UserNotice } from "@/lib/user-message"
 import {
+  localPhoneDigits,
+  sanitizeEmail,
+  sanitizeName,
   validateCompanyStep,
   validateProspectsStep,
   validateRoleStep,
   validateYouDetails,
   validateYouStep,
+  websiteFromEmail,
 } from "@/lib/validators"
+
+export const RESEARCH_STORAGE_KEY = "prospectiq-draft-v1"
 
 export type ResearchStore = {
   step: number
   notice: UserNotice | null
   otpError: string | null
   pending: boolean
+  jobId: string | null
+  job: ResearchJob | null
   result: ResearchResult | null
   catalog: Catalog
-  otpRequired: boolean
   fullName: string
   phone: string
   email: string
-  outreachEmail: string
-  differentOutreach: boolean
-  outreachVerified: boolean
-  otpOpen: boolean
-  verifyCode: string
-  verifyBusy: boolean
   industry: string
   title: string
   website: string
+  websiteTouched: boolean
   file: File | null
   staging: StagingPreview | null
   previewBusy: boolean
+  prospectsMode: "grid" | "upload"
 
-  outreach: () => string
   showError: (raw: unknown) => void
   showOtpError: (raw: unknown) => void
   clearMessages: () => void
@@ -46,144 +50,201 @@ export type ResearchStore = {
   setNotice: (notice: UserNotice | null) => void
   setOtpError: (otpError: string | null) => void
   setPending: (pending: boolean) => void
+  setJobId: (jobId: string | null) => void
+  setJob: (job: ResearchJob | null) => void
   setResult: (result: ResearchResult | null) => void
   setCatalog: (catalog: Catalog) => void
-  setOtpRequired: (otpRequired: boolean) => void
   setFullName: (fullName: string) => void
   setPhone: (phone: string) => void
   setEmail: (email: string) => void
-  setOutreachEmail: (outreachEmail: string) => void
-  setDifferentOutreach: (differentOutreach: boolean) => void
-  setOutreachVerified: (outreachVerified: boolean) => void
-  setOtpOpen: (otpOpen: boolean) => void
-  setVerifyCode: (verifyCode: string) => void
-  setVerifyBusy: (verifyBusy: boolean) => void
   setIndustry: (industry: string) => void
   setTitle: (title: string) => void
   setWebsite: (website: string) => void
+  applySuggestedWebsite: () => void
   setFile: (file: File | null) => void
   setStaging: (staging: StagingPreview | null) => void
   setPreviewBusy: (previewBusy: boolean) => void
+  setProspectsMode: (prospectsMode: "grid" | "upload") => void
   startOver: () => void
 }
 
-export const useResearchStore = create<ResearchStore>((set, get) => ({
-  step: 0,
-  notice: null,
-  otpError: null,
-  pending: false,
-  result: null,
-  catalog: bundledCatalog,
-  otpRequired: false,
-  fullName: "",
-  phone: "",
-  email: "",
-  outreachEmail: "",
-  differentOutreach: false,
-  outreachVerified: false,
-  otpOpen: false,
-  verifyCode: "",
-  verifyBusy: false,
-  industry: "",
-  title: "",
-  website: "",
-  file: null,
-  staging: null,
-  previewBusy: false,
+type PersistedDraft = Pick<
+  ResearchStore,
+  | "step"
+  | "fullName"
+  | "phone"
+  | "email"
+  | "industry"
+  | "title"
+  | "website"
+  | "websiteTouched"
+  | "staging"
+  | "prospectsMode"
+  | "result"
+  | "jobId"
+>
 
-  outreach: () => {
-    const state = get()
-    return (state.differentOutreach ? state.outreachEmail : state.email).trim()
-  },
+function clampStep(step: unknown): number {
+  return typeof step === "number" && step >= 0 && step <= 3
+    ? Math.floor(step)
+    : 0
+}
 
-  showError: (raw) => set({ notice: userNotice(raw) }),
-  showOtpError: (raw) => set({ otpError: userNotice(raw).message }),
-  clearMessages: () => set({ notice: null, otpError: null }),
+export const useResearchStore = create<ResearchStore>()(
+  persist(
+    (set, get) => ({
+      step: 0,
+      notice: null,
+      otpError: null,
+      pending: false,
+      jobId: null,
+      job: null,
+      result: null,
+      catalog: bundledCatalog,
+      fullName: "",
+      phone: "",
+      email: "",
+      industry: "",
+      title: "",
+      website: "",
+      websiteTouched: false,
+      file: null,
+      staging: null,
+      previewBusy: false,
+      prospectsMode: "grid",
 
-  validateStep: (index) => {
-    const state = get()
-    if (index === 0) {
-      return validateYouStep({
+      showError: (raw) => set({ notice: userNotice(raw) }),
+      showOtpError: (raw) => set({ otpError: userNotice(raw).message }),
+      clearMessages: () => set({ notice: null, otpError: null }),
+
+      validateStep: (index) => {
+        const state = get()
+        if (index === 0) {
+          return validateYouStep({
+            fullName: state.fullName,
+            phone: state.phone,
+            email: state.email,
+          })
+        }
+        if (index === 1) {
+          return validateRoleStep(state.catalog, state.industry, state.title)
+        }
+        if (index === 2) {
+          return validateCompanyStep(state.website)
+        }
+        return validateProspectsStep(state.file, state.staging)
+      },
+
+      setStep: (step) =>
+        set((state) => ({
+          step: typeof step === "function" ? step(state.step) : step,
+        })),
+      setNotice: (notice) => set({ notice }),
+      setOtpError: (otpError) => set({ otpError }),
+      setPending: (pending) => set({ pending }),
+      setJobId: (jobId) => set({ jobId }),
+      setJob: (job) => set({ job }),
+      setResult: (result) => set({ result }),
+      setCatalog: (catalog) => set({ catalog }),
+      setFullName: (fullName) => set({ fullName: sanitizeName(fullName) }),
+      setPhone: (phone) => set({ phone: localPhoneDigits(phone) }),
+      setEmail: (email) =>
+        set((state) => {
+          const next = sanitizeEmail(email)
+          return {
+            email: next,
+            website: state.websiteTouched
+              ? state.website
+              : websiteFromEmail(next) ?? "",
+          }
+        }),
+      setIndustry: (industry) =>
+        set((state) => ({
+          industry,
+          title:
+            state.title && !isAllowedTitle(state.catalog, industry, state.title)
+              ? ""
+              : state.title,
+        })),
+      setTitle: (title) => set({ title }),
+      setWebsite: (website) => set({ website, websiteTouched: true }),
+      applySuggestedWebsite: () =>
+        set((state) => {
+          const suggested = websiteFromEmail(state.email)
+          return suggested
+            ? { website: suggested, websiteTouched: false }
+            : {}
+        }),
+      setFile: (file) => set({ file }),
+      setStaging: (staging) => set({ staging }),
+      setPreviewBusy: (previewBusy) => set({ previewBusy }),
+      setProspectsMode: (prospectsMode) => set({ prospectsMode }),
+      startOver: () =>
+        set({
+          result: null,
+          pending: false,
+          jobId: null,
+          job: null,
+          step: 3,
+        }),
+    }),
+    {
+      name: RESEARCH_STORAGE_KEY,
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state): PersistedDraft => ({
+        step: state.step,
         fullName: state.fullName,
         phone: state.phone,
         email: state.email,
-        outreachEmail: state.outreach(),
-        otpRequired: state.otpRequired,
-        outreachVerified: state.outreachVerified,
-      })
+        industry: state.industry,
+        title: state.title,
+        website: state.website,
+        websiteTouched: state.websiteTouched,
+        staging: state.staging,
+        prospectsMode: state.prospectsMode,
+        result: state.result,
+        jobId: state.jobId,
+      }),
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<PersistedDraft>
+        const jobId = saved.jobId ?? null
+        return {
+          ...current,
+          ...saved,
+          step: clampStep(saved.step ?? current.step),
+          file: null,
+          jobId,
+          job: null,
+          pending: Boolean(jobId),
+          previewBusy: false,
+          notice: null,
+          otpError: null,
+        }
+      },
     }
-    if (index === 1) {
-      return validateRoleStep(state.catalog, state.industry, state.title)
-    }
-    if (index === 2) {
-      return validateCompanyStep(state.website)
-    }
-    return validateProspectsStep(state.file, state.staging)
-  },
+  )
+)
 
-  setStep: (step) =>
-    set((state) => ({
-      step: typeof step === "function" ? step(state.step) : step,
-    })),
-  setNotice: (notice) => set({ notice }),
-  setOtpError: (otpError) => set({ otpError }),
-  setPending: (pending) => set({ pending }),
-  setResult: (result) => set({ result }),
-  setCatalog: (catalog) => set({ catalog }),
-  setOtpRequired: (otpRequired) => set({ otpRequired }),
-  setFullName: (fullName) => set({ fullName }),
-  setPhone: (phone) => set({ phone }),
-  setEmail: (email) =>
-    set((state) => ({
-      email,
-      outreachEmail: state.differentOutreach ? state.outreachEmail : email,
-      outreachVerified: state.differentOutreach
-        ? state.outreachVerified
-        : false,
-    })),
-  setOutreachEmail: (outreachEmail) =>
-    set({ outreachEmail, outreachVerified: false }),
-  setDifferentOutreach: (differentOutreach) =>
-    set((state) => ({
-      differentOutreach,
-      outreachVerified: false,
-      outreachEmail: differentOutreach ? state.outreachEmail : state.email,
-    })),
-  setOutreachVerified: (outreachVerified) => set({ outreachVerified }),
-  setOtpOpen: (otpOpen) => set({ otpOpen }),
-  setVerifyCode: (verifyCode) => set({ verifyCode }),
-  setVerifyBusy: (verifyBusy) => set({ verifyBusy }),
-  setIndustry: (industry) =>
-    set((state) => ({
-      industry,
-      title:
-        state.title && !isAllowedTitle(state.catalog, industry, state.title)
-          ? ""
-          : state.title,
-    })),
-  setTitle: (title) => set({ title }),
-  setWebsite: (website) => set({ website }),
-  setFile: (file) => set({ file }),
-  setStaging: (staging) => set({ staging }),
-  setPreviewBusy: (previewBusy) => set({ previewBusy }),
-  startOver: () => set({ result: null, pending: false, step: 3 }),
-}))
+export function useResearchHydrated(): boolean {
+  const [hydrated, setHydrated] = useState(false)
 
-export function youDetailsFromStore(): {
-  fullName: string
-  phone: string
-  email: string
-  outreachEmail: string
-} {
-  const state = useResearchStore.getState()
-  return {
-    fullName: state.fullName,
-    phone: state.phone,
-    email: state.email,
-    outreachEmail: state.outreach(),
-  }
+  useEffect(() => {
+    const finish = () => setHydrated(true)
+    if (useResearchStore.persist.hasHydrated()) {
+      finish()
+      return
+    }
+    return useResearchStore.persist.onFinishHydration(finish)
+  }, [])
+
+  return hydrated
 }
 
 export function validateCurrentYouDetails(): string | null {
-  return validateYouDetails(youDetailsFromStore())
+  const state = useResearchStore.getState()
+  return validateYouDetails({
+    fullName: state.fullName,
+    phone: state.phone,
+    email: state.email,
+  })
 }

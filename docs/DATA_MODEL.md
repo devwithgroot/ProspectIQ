@@ -18,7 +18,7 @@ Who is logged in and what they sell. Created from name / phone / work email plus
 
 Key fields: `user_id`, `full_name`, `title` (`SellerTitle` enum), `email` (work identity), `outreach_email` (from-address, may differ), `outreach_email_verified`, `phone`, `company` (`SellerCompany`), `voice` (tone, signature, calendar, CTA), `product_ids`.
 
-When `OTP_REQUIRED=true`, the web form will not run research until a code sent to `outreach_email` is confirmed. That check is off by default. Signature and later EXCON sends use the outreach address, not the work email.
+Research signup only collects work email. Until engagement, `outreach_email` defaults to that work address. Outreach email and OTP confirmation (`OTP_REQUIRED`) belong after login, when the seller actually writes to people. Signature and later EXCON sends use the outreach address, not the work email.
 
 `title` and `company.industry` are closed lists from `config/catalog.json` (`Industry` and `SellerTitle` in `config/catalog.py`). The seller types to filter, but only a catalog value is stored. Title options change with industry: every industry gets the shared GTM ladder (SDR / AE / KAM / Head of Sales / CRO), plus roles that industry actually uses (Plant Head in manufacturing, Medical Representative in pharma, Relationship Manager in banking). The Next.js form ships the same JSON as `web/lib/catalog-data.json`; keep those two files identical.
 

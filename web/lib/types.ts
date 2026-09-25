@@ -57,3 +57,17 @@ export type ResearchResult = {
   prospects: Prospect[]
   reports: ProspectReport[]
 }
+
+export type ResearchJobStatus = "running" | "done" | "error" | "lost"
+
+export type ResearchJob = {
+  job_id: string
+  status: ResearchJobStatus
+  started_at: string
+  companies: string[]
+  current: string
+  done: string[]
+  percent: number
+  result?: ResearchResult | null
+  error?: string | null
+}

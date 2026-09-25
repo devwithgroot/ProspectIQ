@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from agents.research_agent import ResearchAgent
 from agents.scoring_agent import ScoringAgent
 from agents.report_agent import ReportAgent
@@ -15,6 +17,7 @@ class ProspectIQ:
         self,
         company_name: str,
         research_goal: str,
+        on_progress: Callable[[str], None] | None = None,
     ):
         print("\n==============================")
         print("PROSPECTIQ ANALYSIS")
@@ -28,17 +31,18 @@ class ProspectIQ:
 
         # Step 2: Research the company
         print("\n[1/3] RESEARCH")
-        state = self.research_agent.run(state)
+        state = self.research_agent.run(state, on_progress=on_progress)
 
         # Step 3: Score the prospect
         print("\n[2/3] SCORING")
-        score = self.scoring_agent.score(state)
+        score = self.scoring_agent.score(state, on_progress=on_progress)
 
         # Step 4: Generate final report
         print("\n[3/3] REPORT")
         report = self.report_agent.generate(
             state=state,
             score=score,
+            on_progress=on_progress,
         )
 
         print("\n==============================")

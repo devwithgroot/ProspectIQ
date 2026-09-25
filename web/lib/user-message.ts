@@ -175,6 +175,13 @@ function mapKnown(lower: string, original: string): UserNotice | null {
         "Add at least one company name and upload the list again.",
     }
   }
+  if (lower.includes("server restarted") || lower.includes("research run was not found")) {
+    return {
+      title: "Research didn’t resume",
+      message:
+        "The last run is no longer available. Start research again from your list.",
+    }
+  }
   if (lower.includes("5 mb")) {
     return {
       title: "That file is too large",

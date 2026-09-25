@@ -147,23 +147,6 @@ def main():
     assert "5 MB" in oversized.json()["detail"]
     print("5 MB limit rejected")
 
-    unverified = client.post(
-        "/api/research",
-        data={
-            "full_name": "Priya Mehta",
-            "phone": "+919845512210",
-            "email": "priya@nexusflow.io",
-            "outreach_email": "priya.sales@nexusflow.io",
-            "website": "https://www.zoho.com",
-            "title": "Account Executive",
-            "industry": "Software / SaaS",
-        },
-        files={"prospects": ("prospects.csv", b"company_name\nAcme\n", "text/csv")},
-    )
-    assert unverified.status_code == 400
-    assert "verify" in unverified.json()["detail"].lower()
-    print("unverified outreach email rejected")
-
     started = client.post(
         "/api/verify-email",
         json={"email": "priya.sales@nexusflow.io"},

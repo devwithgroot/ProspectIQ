@@ -1,7 +1,9 @@
+from collections.abc import Callable
 
 from agents.state import ResearchState
 from config.schemas import ProspectScore, ScoringAssessment
 from llm.client import LLMClient
+from llm.json_util import reason_lines
 
 
 class ScoringAgent:
@@ -17,7 +19,12 @@ class ScoringAgent:
     def score(
         self,
         state: ResearchState,
+        on_progress: Callable[[str], None] | None = None,
     ) -> ProspectScore:
+        if on_progress is not None:
+            on_progress(
+                f"Rating how well {state.company_name} fits"
+            )
 
         evidence_summary = "\n".join(
             [
@@ -144,6 +151,21 @@ Calculate every score independently from the provided evidence.
         recommendation = self._get_recommendation(
             overall_score
         )
+
+        if on_progress is not None:
+            on_progress(
+                f"{state.company_name}: {overall_score:.0f} · {recommendation}"
+            )
+            on_progress(
+                "Why: "
+                f"growth {assessment.growth_score:.0f}, "
+                f"expansion {assessment.expansion_score:.0f}, "
+                f"hiring {assessment.hiring_score:.0f}, "
+                f"tech {assessment.technology_score:.0f}, "
+                f"strategy {assessment.strategic_score:.0f}"
+            )
+            for line in reason_lines(" ".join(assessment.reasons), limit=3):
+                on_progress(line)
 
         return ProspectScore(
             company_name=assessment.company_name,

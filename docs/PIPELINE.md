@@ -5,7 +5,7 @@ The current application entry. A seller enters identity + a company website, upl
 ## Flow
 
 ```text
-Name, phone, email, industry, title, company website
+Name, phone, work email, industry, title, company website (suggested from the work-email domain)
         │
         ▼
 WebsiteReaderTool  →  page text

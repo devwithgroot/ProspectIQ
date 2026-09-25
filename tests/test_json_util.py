@@ -1,5 +1,5 @@
 from config.excon_schemas import DraftContent
-from llm.json_util import extract_json_text, parse_model
+from llm.json_util import extract_json_text, extract_think, parse_model, reason_lines
 
 
 def main():
@@ -22,6 +22,11 @@ def main():
     parsed = parse_model(DraftContent, fenced)
     assert parsed.channel == "email"
     assert parsed.subject == "Working session"
+    assert extract_think(fenced) == "planning"
+    assert reason_lines("Need hiring signals. Then check plants.") == [
+        "Why: Need hiring signals.",
+        "Why: Then check plants.",
+    ]
     print(extract_json_text(fenced))
     print("LLM JSON PARSE TEST PASSED")
 

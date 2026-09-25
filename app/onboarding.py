@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from pydantic import BaseModel, Field
 
 from config.catalog import parse_industry, parse_title, title_allowed
@@ -10,7 +12,7 @@ from config.excon_schemas import (
     User,
 )
 from llm.client import LLMClient
-from llm.json_util import generate_model
+from llm.json_util import generate_model, reason_lines
 from tools.website_reader import WebsiteReaderTool
 
 from app.report_mapper import slug
@@ -59,7 +61,11 @@ class OnboardingAgent:
         title: str,
         industry: str,
         outreach_email_verified: bool = False,
+        on_progress: Callable[[str], None] | None = None,
     ) -> tuple[User, list[Product]]:
+        def note(message: str) -> None:
+            if on_progress is not None:
+                on_progress(message)
         seller_title = parse_title(title)
         seller_industry = parse_industry(industry)
         if not title_allowed(seller_title, seller_industry):
@@ -67,8 +73,18 @@ class OnboardingAgent:
                 f"{seller_title.value} is not a title used in "
                 f"{seller_industry.value}."
             )
-        page_text = self._read_site(website)
+        note("Opening your website")
+        page_text = self._read_site(website, on_progress=on_progress)
+        note("Figuring out what you sell")
         inferred = self._infer(full_name, email, website, page_text)
+        note("Listing what you offer")
+        for line in reason_lines(inferred.company.description, limit=2):
+            note(line)
+        product_names = [
+            item.name for item in inferred.products if item.name.strip()
+        ]
+        if product_names:
+            note("Why: it looks like you sell " + ", ".join(product_names[:4]))
 
         products = [
             self._to_product(item, index)
@@ -110,14 +126,27 @@ class OnboardingAgent:
         )
         return user, products
 
-    def _read_site(self, website: str) -> str:
+    def _read_site(
+        self,
+        website: str,
+        on_progress: Callable[[str], None] | None = None,
+    ) -> str:
+        if on_progress is not None:
+            on_progress("Reading what’s on the page")
         try:
             page = self.reader.execute(url=website)
         except Exception as exc:
             print(f"[Onboarding] Could not fetch website ({exc}). Using URL only.")
+            if on_progress is not None:
+                on_progress("Couldn’t open the site, so we’ll use the web address")
             return f"Website URL: {website}\nPage could not be fetched."
 
         text = page.content[:6000]
+        if on_progress is not None:
+            title = (page.title or "").strip()
+            on_progress(
+                f"Found {title}" if title else "Finished reading your site"
+            )
         return (
             f"Title: {page.title}\n"
             f"URL: {page.url}\n"

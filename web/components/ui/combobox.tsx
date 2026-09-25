@@ -6,6 +6,11 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  catalogOptionMatches,
+  catalogShortcut,
+  rankCatalogMatch,
+} from "@/lib/catalog"
 import { cn } from "@/lib/utils"
 
 export type ComboboxOption = {
@@ -25,7 +30,9 @@ type ComboboxProps = {
   hint?: string
   disabled?: boolean
   required?: boolean
+  autoFocus?: boolean
   onChange: (value: string) => void
+  onAdvance?: () => void
 }
 
 export function Combobox({
@@ -39,7 +46,9 @@ export function Combobox({
   hint,
   disabled,
   required,
+  autoFocus,
   onChange,
+  onAdvance,
 }: ComboboxProps) {
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
@@ -53,12 +62,17 @@ export function Combobox({
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    return needle
-      ? options.filter((option) =>
-          option.label.toLowerCase().includes(needle)
-        )
+    const needle = query.trim()
+    const matched = needle
+      ? options.filter((option) => catalogOptionMatches(option, needle))
       : options
+    if (!needle) {
+      return matched
+    }
+    return [...matched].sort(
+      (left, right) =>
+        rankCatalogMatch(left, needle) - rankCatalogMatch(right, needle)
+    )
   }, [options, query])
 
   const groups = useMemo(() => {
@@ -140,6 +154,7 @@ export function Combobox({
           aria-controls={`${id}-list`}
           aria-autocomplete="list"
           autoComplete="off"
+          autoFocus={autoFocus}
           disabled={disabled}
           placeholder={value || placeholder}
           value={open ? query : value}
@@ -166,9 +181,16 @@ export function Combobox({
                   : 0
               )
             } else if (event.key === "Enter") {
+              event.preventDefault()
               if (open && filtered[highlight]) {
-                event.preventDefault()
                 selectIndex(highlight)
+                onAdvance?.()
+                return
+              }
+              if (value) {
+                setOpen(false)
+                setQuery("")
+                onAdvance?.()
               }
             } else if (event.key === "Escape") {
               setOpen(false)
@@ -207,6 +229,7 @@ export function Combobox({
                     {items.map((option) => {
                       const index = filtered.indexOf(option)
                       const selected = option.label === value
+                      const shortcut = catalogShortcut(option)
                       return (
                         <button
                           key={option.id}
@@ -214,7 +237,7 @@ export function Combobox({
                           role="option"
                           aria-selected={selected}
                           className={cn(
-                            "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left",
+                            "flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-left",
                             index === highlight
                               ? "bg-muted"
                               : "hover:bg-muted/70"
@@ -223,10 +246,17 @@ export function Combobox({
                           onMouseEnter={() => setHighlight(index)}
                           onClick={() => commit(option.label)}
                         >
-                          <span>{option.label}</span>
-                          {selected ? (
-                            <CheckIcon className="size-3.5 text-muted-foreground" />
-                          ) : null}
+                          <span className="min-w-0 truncate">{option.label}</span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            {shortcut ? (
+                              <span className="text-xs text-muted-foreground">
+                                {shortcut}
+                              </span>
+                            ) : null}
+                            {selected ? (
+                              <CheckIcon className="size-3.5 text-muted-foreground" />
+                            ) : null}
+                          </span>
                         </button>
                       )
                     })}

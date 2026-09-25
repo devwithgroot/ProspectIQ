@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -43,7 +44,13 @@ class SellerPipeline:
         title: str,
         industry: str,
         outreach_email_verified: bool = True,
+        on_progress: Callable[[str], None] | None = None,
     ) -> PipelineResult:
+        def note(message: str) -> None:
+            print(message)
+            if on_progress is not None:
+                on_progress(message)
+
         print("\n==============================")
         print("SELLER ONBOARDING")
         print("==============================")
@@ -57,12 +64,21 @@ class SellerPipeline:
             website=website,
             title=title,
             industry=industry,
+            on_progress=note,
         )
 
         print(f"Seller: {user.full_name} <{user.email}>")
         print(f"Outreach from: {user.outreach_email}")
         print(f"Company: {user.company.name}")
         print(f"Products: {', '.join(product.name for product in products)}")
+        note(
+            f"Got it — {user.company.name}"
+            + (
+                f", selling {', '.join(product.name for product in products[:3])}"
+                if products
+                else ""
+            )
+        )
 
         uploaded = load_prospect_csv(prospects_csv)
         print(f"\nUploaded prospects: {len(uploaded)}")
@@ -82,9 +98,11 @@ class SellerPipeline:
                 f"{product_names}."
             )
 
+            note(f"Looking into {row.company_name} ({index}/{len(uploaded)})")
             report = self.analyzer.analyze(
                 company_name=row.company_name,
                 research_goal=research_goal,
+                on_progress=note,
             )
             reports.append(report)
             prospects.append(
@@ -95,7 +113,9 @@ class SellerPipeline:
                     products=products,
                 )
             )
+            note(f"Ready with the {row.company_name} briefing")
 
+        note("Putting your briefings together")
         result = PipelineResult(
             user=user,
             products=products,

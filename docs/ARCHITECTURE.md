@@ -21,7 +21,7 @@ Mac mini :8080
 See [PIPELINE.md](PIPELINE.md). After signup fields + CSV, the orchestrator runs on the real APIs:
 
 ```text
-name, phone, work email, outreach email, industry, title, website
+name, phone, work email, industry, title, website (suggested from the work-email domain)
         │
         ▼
 WebsiteReaderTool + MLX     →  User + Products

@@ -5,8 +5,8 @@ This is the product path a salesperson is supposed to take. Steps 1–4 run toda
 ## Intended path
 
 ```text
-1. Enter name, phone, email, industry, and title
-2. Paste company website
+1. Enter name, phone, work email, industry, and title
+2. Confirm company website (suggested from the work-email domain)
 3. Optionally upload prospect companies
 4. System builds the seller + researches prospects
 5. Seller picks a prospect → sees contacts
@@ -22,16 +22,16 @@ The seller types:
 - Full name
 - Phone number
 - Work email
-- Outreach email (can be different from work email)
-- When `OTP_REQUIRED=true`, a code is sent to that inbox and must be confirmed in a dialog. It is off by default.
 - Industry (suggestive dropdown, catalog only)
 - Title (suggestive dropdown, titles for that industry only)
 
-That becomes the `User` record. Work email is who they are. Outreach email is the from-address later. Industry and title are enums (`Industry`, `SellerTitle` in `config/catalog.py`). Free-typed values are rejected.
+That becomes the `User` record. Work email is who they are. Industry and title are enums (`Industry`, `SellerTitle` in `config/catalog.py`). Free-typed values are rejected.
+
+Outreach email (the from-address, which can differ from work email) is not asked here. It is collected later, after login, when the seller starts engagement.
 
 ### 2. Company from a link
 
-They paste their company website.
+The company website is suggested from the work-email domain (`you@acme.com` → `acme.com`). Consumer inboxes such as Gmail do not get a suggestion. The seller can overwrite the suggestion if the site is different.
 
 `OnboardingAgent` then:
 
@@ -41,9 +41,9 @@ They paste their company website.
 
 If the page cannot be fetched, MLX still runs on the URL alone. The seller should be able to correct the result before outreach; that edit step is not in the CLI yet.
 
-### 3. Optional prospect upload
+### 3. Prospect list
 
-They may already have a list. Upload (CSV / sheet) with at least:
+They type companies into a spreadsheet-style list, or switch to Upload for a CSV. At least:
 
 | Column | Required | Notes |
 |---|---|---|
@@ -52,9 +52,9 @@ They may already have a list. Upload (CSV / sheet) with at least:
 | notes | no | Why they care |
 | owner | no | If a team later |
 
-The form first stages the parsed rows (company, website, notes; duplicates dropped) so the seller can review and edit the list. Research starts from that staging screen. The form estimates time from list size: about a minute to read the seller site, then about 2–3 minutes per company, plus a few extra minutes of buffer. After research, briefings stay on a review screen so the seller can edit the wording before they keep it. Each company is then researched with Tavily, scored and reported with MLX, then mapped to a `Prospect` (`signals`, `pain_points`, score, `why_relevant_to_user`, `matched_product_ids`). See [PIPELINE.md](PIPELINE.md).
+Typed rows and uploaded rows both land in the same editable sheet (company, website, notes; CSV duplicates dropped). Research starts from that list. The form estimates time from list size: about a minute to read the seller site, then about 2–3 minutes per company, plus a few extra minutes of buffer. After research, briefings stay on a review screen so the seller can edit the wording before they keep it. Each company is then researched with Tavily, scored and reported with MLX, then mapped to a `Prospect` (`signals`, `pain_points`, score, `why_relevant_to_user`, `matched_product_ids`). See [PIPELINE.md](PIPELINE.md).
 
-If they upload nothing, Phase 1 can later *discover* prospects from the seller ICP. That discovery path is not built yet. Upload is the first supported way to get companies into the system.
+If they add nothing, Phase 1 can later *discover* prospects from the seller ICP. That discovery path is not built yet.
 
 ### 4. Research and summary (Phases 1–2)
 
@@ -70,7 +70,7 @@ The seller sees companies first, then people. They do not start from a raw lead 
 
 ### 5. Engage (Phase 3 EXCON)
 
-The seller picks one or more prospects they want to talk to.
+The seller picks one or more prospects they want to talk to. This is also when they set (and, if `OTP_REQUIRED=true`, confirm) the outreach email prospects will see as the from-address.
 
 For each chosen prospect they see that company's contacts. EXCON then:
 
@@ -88,9 +88,9 @@ Not built. The event log already records `drafted`, `edited`, `approved`, `rejec
 
 ## What works if you run the repo today
 
-The first application slice is the Next.js + shadcn form, plus the same CLI. Both use the same MLX and Tavily clients. The form is four sections: You, Role, Company, Prospects.
+The first application slice is the Next.js + shadcn form, plus the same CLI. Both use the same MLX and Tavily clients. The form is four sections: You, Role, Company, Prospects. Until signup exists, this browser remembers the seller’s details, list, current step, and last briefings in local storage.
 
-1. Enter name, phone, email, industry, title, and company website (`./run_app.sh` or `./run_pipeline.sh`)
+1. Enter name, phone, work email, industry, title, and company website (`./run_app.sh` or `./run_pipeline.sh`). The site is suggested from the work-email domain.
 2. Point at a prospect CSV (`company_name`, optional `website`, `notes`)
 3. Onboarding reads the seller site and infers company + products via MLX
 4. Live `ProspectIQ.analyze()` runs for **each uploaded company** (Tavily + MLX)

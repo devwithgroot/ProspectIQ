@@ -87,3 +87,96 @@ export function isAllowedTitle(
     (option) => option.label === title
   )
 }
+
+const STOP_WORDS = new Set(["of", "and", "the", "a", "an", "for", "to", "or"])
+
+function compact(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "")
+}
+
+export function catalogInitials(label: string): string {
+  const words = label
+    .replace(/[()]/g, " ")
+    .split(/[\s/,&-]+/)
+    .filter((word) => word && !STOP_WORDS.has(word.toLowerCase()))
+  if (words.length < 2) {
+    return ""
+  }
+  return words.map((word) => word[0] ?? "").join("").toUpperCase()
+}
+
+export function catalogSearchTerms(option: {
+  id: string
+  label: string
+}): string[] {
+  return [
+    option.label,
+    option.id,
+    option.id.replaceAll("_", " "),
+    option.id.replaceAll("_", ""),
+    catalogInitials(option.label),
+  ]
+}
+
+function words(value: string): string[] {
+  return value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+}
+
+export function catalogOptionMatches(
+  option: { id: string; label: string },
+  query: string
+): boolean {
+  const needle = query.trim().toLowerCase()
+  if (!needle) {
+    return true
+  }
+  const compactNeedle = compact(needle)
+  return catalogSearchTerms(option).some((term) => {
+    const lower = term.toLowerCase()
+    const squeezed = compact(term)
+    if (lower === needle || squeezed === compactNeedle) {
+      return true
+    }
+    if (lower.startsWith(needle) || squeezed.startsWith(compactNeedle)) {
+      return true
+    }
+    if (words(term).some((word) => word.startsWith(needle))) {
+      return true
+    }
+    if (needle.length >= 3 && lower.includes(needle)) {
+      return true
+    }
+    return compactNeedle.length >= 3 && squeezed.includes(compactNeedle)
+  })
+}
+
+export function rankCatalogMatch(
+  option: { id: string; label: string },
+  query: string
+): number {
+  const needle = query.trim().toLowerCase()
+  const compactNeedle = compact(needle)
+  const id = compact(option.id)
+  const initials = catalogInitials(option.label).toLowerCase()
+  const label = option.label.toLowerCase()
+  if (id === compactNeedle || initials === compactNeedle) {
+    return 0
+  }
+  if (id.startsWith(compactNeedle) || initials.startsWith(compactNeedle)) {
+    return 1
+  }
+  if (label.startsWith(needle)) {
+    return 2
+  }
+  return 3
+}
+
+export function catalogShortcut(option: {
+  id: string
+  label: string
+}): string | null {
+  if (!option.id.includes("_") && option.id.length >= 2 && option.id.length <= 4) {
+    return option.id.toUpperCase()
+  }
+  return null
+}
