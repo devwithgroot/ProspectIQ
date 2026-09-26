@@ -1,12 +1,53 @@
+import re
 from collections.abc import Callable
 
 from agents.state import ResearchState
 from agents.research_prompt import research_summary_block
-from config.schemas import ProspectScore, ScoringAssessment
+from config.schemas import Evidence, ProspectScore, ScoringAssessment
 from llm.client import LLMClient
 from llm.json_util import generate_model, reason_lines
 
 INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP = 0.35
+UNSUPPORTED_DIMENSION_SCORE_CAP = 15.0
+
+_DIMENSION_NAMES = (
+    "Growth",
+    "Expansion",
+    "Hiring",
+    "Technology",
+    "Strategic",
+)
+
+_DIMENSION_LEXICONS: dict[str, tuple[str, ...]] = {
+    "Growth": ("growth", "revenue", "demand", "scale"),
+    "Expansion": ("expansion", "expand", "capacity", "geography", "market"),
+    "Hiring": ("hiring", "workforce", "headcount", "recruit", "jobs"),
+    "Technology": (
+        "technology",
+        "digital",
+        "cloud",
+        "software",
+        "modernization",
+        "transform",
+        "transformation",
+        "cyber",
+    ),
+    "Strategic": (
+        "strategic",
+        "acquisition",
+        "merger",
+        "partnership",
+        "investment",
+        "funding",
+        "initiative",
+    ),
+}
+
+_TERM_PATTERNS: dict[str, re.Pattern[str]] = {
+    term: re.compile(rf"\b{re.escape(term)}\b")
+    for terms in _DIMENSION_LEXICONS.values()
+    for term in terms
+}
 
 
 class ScoringAgent:
@@ -29,18 +70,7 @@ class ScoringAgent:
                 f"Rating how well {state.company_name} fits"
             )
 
-        evidence_summary = "\n".join(
-            [
-                (
-                    f"- Title: {e.title}\n"
-                    f"  URL: {e.url}\n"
-                    f"  Relevance: {e.relevance:.2f}\n"
-                    f"  Quality: {e.quality:.2f}\n"
-                    f"  Content: {e.content[:700]}"
-                )
-                for e in state.evidence
-            ]
-        )
+        evidence_summary = self._format_evidence_summary(state)
 
         prompt = self._build_prompt(
             state=state,
@@ -105,6 +135,56 @@ class ScoringAgent:
             reasons=assessment.reasons,
         )
 
+    def _format_evidence_summary(self, state: ResearchState) -> str:
+        blocks = []
+        for index, evidence in enumerate(state.evidence, start=1):
+            supports = self._dimension_support_for_evidence(evidence)
+            support_label = ", ".join(supports) if supports else "none"
+            blocks.append(
+                (
+                    f"Evidence {index} — Supports (heuristic): {support_label}\n"
+                    f"- Title: {evidence.title}\n"
+                    f"  URL: {evidence.url}\n"
+                    f"  Relevance: {evidence.relevance:.2f}\n"
+                    f"  Quality: {evidence.quality:.2f}\n"
+                    f"  Content: {evidence.content[:700]}"
+                )
+            )
+        return "\n\n".join(blocks)
+
+    def _dimension_support_for_evidence(self, evidence: Evidence) -> list[str]:
+        combined = f"{evidence.title} {evidence.content}".lower()
+        supported: list[str] = []
+        for dimension in _DIMENSION_NAMES:
+            if self._dimension_supported_in_text(dimension, combined):
+                supported.append(dimension)
+        return supported
+
+    def _dimension_supported_in_text(self, dimension: str, text: str) -> bool:
+        for term in _DIMENSION_LEXICONS[dimension]:
+            if _TERM_PATTERNS[term].search(text):
+                return True
+        return False
+
+    def _union_supported_dimensions(self, state: ResearchState) -> set[str]:
+        supported: set[str] = set()
+        for evidence in state.evidence:
+            supported.update(self._dimension_support_for_evidence(evidence))
+        return supported
+
+    def _apply_unsupported_dimension_caps(
+        self,
+        scores: tuple[float, float, float, float, float],
+        supported: set[str],
+    ) -> tuple[float, float, float, float, float]:
+        capped: list[float] = []
+        for dimension, value in zip(_DIMENSION_NAMES, scores):
+            if dimension not in supported:
+                capped.append(min(value, UNSUPPORTED_DIMENSION_SCORE_CAP))
+            else:
+                capped.append(value)
+        return tuple(capped)
+
     def _guarded_dimension_scores(
         self,
         state: ResearchState,
@@ -112,13 +192,15 @@ class ScoringAgent:
     ) -> tuple[float, float, float, float, float]:
         if len(state.evidence) == 0 or state.useful_evidence_count == 0:
             return (0.0, 0.0, 0.0, 0.0, 0.0)
-        return (
+        scores = (
             assessment.growth_score,
             assessment.expansion_score,
             assessment.hiring_score,
             assessment.technology_score,
             assessment.strategic_score,
         )
+        supported = self._union_supported_dimensions(state)
+        return self._apply_unsupported_dimension_caps(scores, supported)
 
     def _validated_confidence(
         self,
@@ -188,6 +270,8 @@ Scoring rules:
   or evidence to fill gaps.
 - Score each dimension only from evidence that supports that
   dimension.
+- Score a dimension above 15 only when at least one evidence
+  item lists that dimension under Supports (heuristic).
 - If there is no evidence for a dimension, score that dimension
   conservatively (15 or below).
 - Do not use the same fact as strong evidence for multiple

@@ -33,6 +33,137 @@ HIGH_LLM_ASSESSMENT = {
 }
 
 
+class DimensionSupportTagTests(unittest.TestCase):
+    def test_technology_only_evidence_gets_technology_tag(self):
+        agent = ScoringAgent()
+        evidence = Evidence(
+            title="Cloud program",
+            url="https://example.com/t",
+            content="Acme announces a cloud modernization program.",
+            source="web_search",
+        )
+        self.assertEqual(
+            agent._dimension_support_for_evidence(evidence),
+            ["Technology"],
+        )
+
+    def test_hiring_and_growth_evidence_gets_multiple_tags(self):
+        agent = ScoringAgent()
+        evidence = Evidence(
+            title="Workforce",
+            url="https://example.com/h",
+            content="Acme is hiring and reporting revenue growth.",
+            source="web_search",
+        )
+        tags = agent._dimension_support_for_evidence(evidence)
+        self.assertIn("Hiring", tags)
+        self.assertIn("Growth", tags)
+
+
+class DimensionSupportCapTests(unittest.TestCase):
+    def test_technology_only_caps_unsupported_dimensions(self):
+        state = ResearchState(
+            company_name="Acme",
+            research_goal="Evaluate Acme.",
+            useful_evidence_count=1,
+        )
+        state.evidence.append(
+            Evidence(
+                title="Cloud program",
+                url="https://example.com/t",
+                content="Acme announces a cloud modernization program.",
+                source="web_search",
+                relevance=0.5,
+                quality=0.5,
+            )
+        )
+        agent = ScoringAgent()
+        agent.llm = MagicMock()
+        agent.llm.generate.return_value = json.dumps(HIGH_LLM_ASSESSMENT)
+
+        score = agent.score(state)
+
+        self.assertEqual(score.technology_score, 80.0)
+        self.assertEqual(score.growth_score, 15.0)
+        self.assertEqual(score.expansion_score, 15.0)
+        self.assertEqual(score.hiring_score, 15.0)
+        self.assertEqual(score.strategic_score, 15.0)
+
+    def test_multi_dimension_evidence_allows_multiple_high_scores(self):
+        state = ResearchState(
+            company_name="Acme",
+            research_goal="Evaluate Acme.",
+            useful_evidence_count=1,
+        )
+        state.evidence.append(
+            Evidence(
+                title="Workforce and growth",
+                url="https://example.com/h",
+                content="Acme is hiring and reporting revenue growth.",
+                source="web_search",
+                relevance=0.5,
+                quality=0.5,
+            )
+        )
+        agent = ScoringAgent()
+        agent.llm = MagicMock()
+        agent.llm.generate.return_value = json.dumps(
+            {
+                "company_name": "Acme",
+                "growth_score": 70,
+                "expansion_score": 80,
+                "hiring_score": 75,
+                "technology_score": 80,
+                "strategic_score": 80,
+                "confidence": 0.8,
+                "reasons": ["a", "b", "c"],
+            }
+        )
+
+        score = agent.score(state)
+
+        self.assertEqual(score.growth_score, 70.0)
+        self.assertEqual(score.hiring_score, 75.0)
+        self.assertEqual(score.expansion_score, 15.0)
+        self.assertEqual(score.technology_score, 15.0)
+        self.assertEqual(score.strategic_score, 15.0)
+
+    def test_supported_dimension_preserves_llm_score(self):
+        state = ResearchState(
+            company_name="Acme",
+            research_goal="Evaluate Acme.",
+            useful_evidence_count=1,
+        )
+        state.evidence.append(
+            Evidence(
+                title="Cloud program",
+                url="https://example.com/t",
+                content="Major cloud modernization and digital technology upgrade.",
+                source="web_search",
+                relevance=0.5,
+                quality=0.5,
+            )
+        )
+        agent = ScoringAgent()
+        agent.llm = MagicMock()
+        agent.llm.generate.return_value = json.dumps(
+            {
+                "company_name": "Acme",
+                "growth_score": 80,
+                "expansion_score": 80,
+                "hiring_score": 80,
+                "technology_score": 85,
+                "strategic_score": 80,
+                "confidence": 0.8,
+                "reasons": ["a", "b", "c"],
+            }
+        )
+
+        score = agent.score(state)
+
+        self.assertEqual(score.technology_score, 85.0)
+
+
 class InsufficientEvidenceGuardTests(unittest.TestCase):
     def test_empty_evidence_zeros_scores_and_low_priority(self):
         state = ResearchState(
@@ -89,7 +220,7 @@ class InsufficientEvidenceGuardTests(unittest.TestCase):
             (0.0, 0.0, 0.0, 0.0, 0.0),
         )
 
-    def test_useful_evidence_preserves_llm_dimension_scores(self):
+    def test_useful_evidence_preserves_llm_when_all_dimensions_supported(self):
         state = ResearchState(
             company_name="Acme",
             research_goal="Evaluate Acme.",
@@ -97,9 +228,12 @@ class InsufficientEvidenceGuardTests(unittest.TestCase):
         )
         state.evidence.append(
             Evidence(
-                title="Hiring",
-                url="https://example.com/h",
-                content="hiring expansion",
+                title="Broad update",
+                url="https://example.com/u",
+                content=(
+                    "Revenue growth, geographic expansion, hiring, "
+                    "cloud technology, and a strategic investment partnership."
+                ),
                 source="web_search",
                 relevance=0.5,
                 quality=0.5,
@@ -182,7 +316,10 @@ class ScoringPromptTests(unittest.TestCase):
             ),
             evidence_summary="",
         )
-        self.assertIn("conservatively (15 or below)", prompt)
+        self.assertIn(
+            "Score a dimension above 15 only when at least one evidence",
+            prompt,
+        )
 
 
 class ScoringConfidenceValidationTests(unittest.TestCase):

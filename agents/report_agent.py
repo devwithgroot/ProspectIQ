@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from agents.report_grounding import sanitize_report_narrative
 from agents.state import ResearchState
 from agents.research_prompt import research_summary_block
 from config.schemas import ProspectReport, ProspectScore
@@ -137,6 +138,8 @@ Return ONLY valid JSON.
         report_data.prospect_score = score.overall_score
         report_data.recommendation = score.recommendation
         report_data.evidence = state.evidence
+
+        sanitize_report_narrative(state, score, report_data)
 
         if on_progress is not None and report_data.key_signals:
             first = " ".join(report_data.key_signals[0].split())
