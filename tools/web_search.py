@@ -45,6 +45,10 @@ class WebSearchTool(BaseTool):
         results = []
 
         for result in response.get("results", []):
+            published = (
+                result.get("published_date")
+                or result.get("published_at")
+            )
             results.append(
                 Evidence(
                     title=result.get("title", ""),
@@ -52,6 +56,7 @@ class WebSearchTool(BaseTool):
                     content=result.get("content", ""),
                     source="web_search",
                     evidence_type="web",
+                    published_at=published,
                 ))
 
         return results  
