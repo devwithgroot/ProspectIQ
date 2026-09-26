@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Evidence(BaseModel):
@@ -43,6 +43,13 @@ class ResearchDecision(BaseModel):
     reasoning: str = Field(
         description="Brief explanation for why this action was selected."
     )
+
+    @field_validator("action", mode="before")
+    @classmethod
+    def normalize_action(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip().lower()
+        return value
 
 
 class Signal(BaseModel):
