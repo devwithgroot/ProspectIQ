@@ -28,6 +28,72 @@ def _hiring_evidence(
     )
 
 
+class EvidenceKeepRuleTests(unittest.TestCase):
+    def _agent(self) -> ResearchAgent:
+        with patch.object(ResearchAgent, "__init__", lambda self: None):
+            return ResearchAgent()
+
+    def _state(
+        self,
+        *,
+        company_name: str = "Acme Corp",
+        company_domain: str | None = "acme.com",
+    ) -> ResearchState:
+        return ResearchState(
+            company_name=company_name,
+            research_goal="Evaluate Acme as a sales prospect.",
+            company_domain=company_domain,
+        )
+
+    def test_high_quality_unrelated_reuters_dropped(self):
+        agent = self._agent()
+        evidence = Evidence(
+            title="Global markets wrap",
+            url="https://www.reuters.com/world/macro-story",
+            content="Central banks and inflation across regions.",
+            source="web_search",
+            relevance=0.0,
+            quality=0.9,
+        )
+        self.assertFalse(agent._should_keep(evidence, self._state()))
+
+    def test_company_domain_url_kept_at_zero_relevance(self):
+        agent = self._agent()
+        evidence = Evidence(
+            title="About us",
+            url="https://www.acme.com/about",
+            content="Welcome to our corporate site.",
+            source="web_search",
+            relevance=0.0,
+            quality=1.0,
+        )
+        self.assertTrue(agent._should_keep(evidence, self._state()))
+
+    def test_high_quality_with_company_name_kept(self):
+        agent = self._agent()
+        evidence = Evidence(
+            title="Acme Corp expands in Europe",
+            url="https://www.reuters.com/business/acme-europe",
+            content="Acme Corp said it will open new offices.",
+            source="web_search",
+            relevance=0.0,
+            quality=0.9,
+        )
+        self.assertTrue(agent._should_keep(evidence, self._state()))
+
+    def test_relevance_path_keeps_mid_quality(self):
+        agent = self._agent()
+        evidence = Evidence(
+            title="Industry note",
+            url="https://blog.example.com/post",
+            content="General industry commentary.",
+            source="web_search",
+            relevance=0.40,
+            quality=0.5,
+        )
+        self.assertTrue(agent._should_keep(evidence, self._state()))
+
+
 class ResearchLoopTests(unittest.TestCase):
     def _agent_with_mocks(self) -> ResearchAgent:
         with patch.object(ResearchAgent, "__init__", lambda self: None):
@@ -305,6 +371,44 @@ class EvidenceEvaluatorTests(unittest.TestCase):
         )
 
         self.assertEqual(scored.quality, 1.0)
+
+    def test_supermarket_does_not_match_market(self):
+        evaluator = EvidenceEvaluator()
+        score = evaluator._calculate_signal_relevance(
+            "visit our supermarket locator"
+        )
+        self.assertEqual(score, 0.0)
+
+    def test_expansion_plan_counts_one_signal(self):
+        evaluator = EvidenceEvaluator()
+        score = evaluator._calculate_signal_relevance(
+            "our expansion plan for next year"
+        )
+        self.assertAlmostEqual(score, 0.25)
+
+    def test_ceo_announced_hiring_counts_two_signals(self):
+        evaluator = EvidenceEvaluator()
+        score = evaluator._calculate_signal_relevance(
+            "ceo announced hiring"
+        )
+        self.assertAlmostEqual(score, 0.5)
+
+    def test_four_distinct_signals_reach_keep_threshold(self):
+        evaluator = EvidenceEvaluator()
+        scored = evaluator.evaluate(
+            Evidence(
+                title="Update",
+                url="https://news.example.com/update",
+                content=(
+                    "Reports growth in hiring with new funding "
+                    "and technology plans."
+                ),
+                source="web_search",
+            ),
+            research_goal="Go.",
+        )
+        self.assertAlmostEqual(scored.relevance, 0.7)
+        self.assertGreaterEqual(scored.relevance, 0.35)
 
 
 class ResearchDecisionTests(unittest.TestCase):

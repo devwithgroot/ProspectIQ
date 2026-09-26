@@ -18,6 +18,7 @@ class ProspectIQ:
         self,
         company_name: str,
         research_goal: str,
+        company_domain: str | None = None,
         on_progress: Callable[[str], None] | None = None,
     ):
         print("\n==============================")
@@ -28,6 +29,7 @@ class ProspectIQ:
         state = ResearchState(
             company_name=company_name,
             research_goal=research_goal,
+            company_domain=company_domain,
         )
 
         # Step 2: Research the company

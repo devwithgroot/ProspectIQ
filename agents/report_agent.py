@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 from agents.state import ResearchState
+from agents.research_prompt import research_summary_block
 from config.schemas import ProspectReport, ProspectScore
 from llm.client import LLMClient
 from llm.json_util import extract_think, parse_model, reason_lines
@@ -33,6 +34,8 @@ class ReportAgent:
             ]
         )
 
+        summary = research_summary_block(state)
+
         prompt = f"""
 You are the ProspectIQ report generation agent.
 
@@ -44,7 +47,7 @@ Company:
 
 Research goal:
 {state.research_goal}
-
+{summary}
 Final prospect score:
 {score.overall_score:.1f}
 

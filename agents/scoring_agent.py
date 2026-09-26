@@ -1,9 +1,12 @@
 from collections.abc import Callable
 
 from agents.state import ResearchState
+from agents.research_prompt import research_summary_block
 from config.schemas import ProspectScore, ScoringAssessment
 from llm.client import LLMClient
-from llm.json_util import reason_lines
+from llm.json_util import generate_model, reason_lines
+
+INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP = 0.35
 
 
 class ScoringAgent:
@@ -39,22 +42,117 @@ class ScoringAgent:
             ]
         )
 
-        prompt = f"""
+        prompt = self._build_prompt(
+            state=state,
+            evidence_summary=evidence_summary,
+        )
+
+        assessment = generate_model(
+            self.llm,
+            ScoringAssessment,
+            prompt,
+            temperature=0.0,
+            max_tokens=600,
+        )
+
+        confidence = self._validated_confidence(state, assessment.confidence)
+
+        (
+            growth_score,
+            expansion_score,
+            hiring_score,
+            technology_score,
+            strategic_score,
+        ) = self._guarded_dimension_scores(state, assessment)
+
+        overall_score = (
+            growth_score * self.GROWTH_WEIGHT
+            + expansion_score * self.EXPANSION_WEIGHT
+            + hiring_score * self.HIRING_WEIGHT
+            + technology_score * self.TECHNOLOGY_WEIGHT
+            + strategic_score * self.STRATEGIC_WEIGHT
+        )
+
+        recommendation = self._get_recommendation(
+            overall_score
+        )
+
+        if on_progress is not None:
+            on_progress(
+                f"{state.company_name}: {overall_score:.0f} · {recommendation}"
+            )
+            on_progress(
+                "Why: "
+                f"growth {growth_score:.0f}, "
+                f"expansion {expansion_score:.0f}, "
+                f"hiring {hiring_score:.0f}, "
+                f"tech {technology_score:.0f}, "
+                f"strategy {strategic_score:.0f}"
+            )
+            for line in reason_lines(" ".join(assessment.reasons), limit=3):
+                on_progress(line)
+
+        return ProspectScore(
+            company_name=assessment.company_name,
+            overall_score=overall_score,
+            growth_score=growth_score,
+            expansion_score=expansion_score,
+            hiring_score=hiring_score,
+            technology_score=technology_score,
+            strategic_score=strategic_score,
+            confidence=confidence,
+            recommendation=recommendation,
+            reasons=assessment.reasons,
+        )
+
+    def _guarded_dimension_scores(
+        self,
+        state: ResearchState,
+        assessment: ScoringAssessment,
+    ) -> tuple[float, float, float, float, float]:
+        if len(state.evidence) == 0 or state.useful_evidence_count == 0:
+            return (0.0, 0.0, 0.0, 0.0, 0.0)
+        return (
+            assessment.growth_score,
+            assessment.expansion_score,
+            assessment.hiring_score,
+            assessment.technology_score,
+            assessment.strategic_score,
+        )
+
+    def _validated_confidence(
+        self,
+        state: ResearchState,
+        confidence: float,
+    ) -> float:
+        if len(state.evidence) == 0 or state.useful_evidence_count == 0:
+            return min(confidence, INSUFFICIENT_EVIDENCE_CONFIDENCE_CAP)
+        return confidence
+
+    def _build_prompt(
+        self,
+        *,
+        state: ResearchState,
+        evidence_summary: str,
+    ) -> str:
+        summary = research_summary_block(state)
+
+        return f"""
 You are the ProspectIQ sales intelligence scoring agent.
 
 Evaluate this company as a potential high-value B2B
-sales prospect.
+sales prospect using ONLY the evidence below.
 
 Company:
 {state.company_name}
 
 Research goal:
 {state.research_goal}
-
+{summary}
 Evidence:
 {evidence_summary}
 
-Evaluate these five dimensions independently from 0 to 100:
+Score these five dimensions from 0 to 100:
 
 1. growth_score
 2. expansion_score
@@ -62,54 +160,51 @@ Evaluate these five dimensions independently from 0 to 100:
 4. technology_score
 5. strategic_score
 
-Scoring guidance:
+Dimension definitions:
 
-Growth:
-How strong are the company's growth signals?
+Growth — strength of growth signals (revenue, demand, scale).
 
-Expansion:
-How strong are expansion, capacity, geography,
-or market-entry signals?
+Expansion — expansion, capacity, geography, or market-entry signals.
 
-Hiring:
-How strong are hiring and workforce-growth signals?
+Hiring — hiring and workforce-growth signals.
 
-Technology:
-How strong are technology investment,
-digital transformation, or technology hiring signals?
+Technology — technology investment, digital transformation,
+or technology-related workforce signals.
 
-Strategic:
-How strong are acquisitions, strategic initiatives,
-investments, partnerships, or major business changes?
+Strategic — acquisitions, strategic initiatives, investments,
+partnerships, or major business changes.
 
-Important rules:
+Score rubric (apply per dimension):
 
-- Use ONLY the provided evidence.
-- Do not invent facts.
-- If evidence is missing, give a conservative score.
-- Stronger and higher-quality evidence should receive
-  greater consideration.
+- 0–20: no meaningful evidence
+- 21–40: weak evidence
+- 41–60: moderate evidence
+- 61–80: strong evidence
+- 81–100: very strong / multiple corroborating signals
 
-Confidence must be a decimal number between 0.0 and 1.0.
+Scoring rules:
 
-Examples:
-- 0.90 = very high confidence
-- 0.75 = high confidence
-- 0.50 = moderate confidence
-- 0.25 = low confidence
+- Use ONLY the available evidence above. Do not invent facts
+  or evidence to fill gaps.
+- Score each dimension only from evidence that supports that
+  dimension.
+- If there is no evidence for a dimension, score that dimension
+  conservatively (15 or below).
+- Do not use the same fact as strong evidence for multiple
+  dimensions unless the evidence genuinely supports each
+  dimension.
+- Do not infer typical industry behavior.
+- Higher relevance and quality on a snippet should increase
+  weight for the dimensions that snippet supports.
 
-DO NOT express confidence as a percentage.
-For example, do NOT return 80 or 80%.
-Return 0.80 instead.
+If evidence count is 0 or useful evidence count is 0, be
+conservative on every dimension and use low confidence.
 
-Do NOT calculate overall_score.
-The application will calculate the overall score.
+Confidence must be a decimal between 0.0 and 1.0 (not a percent).
+Examples: 0.90 very high, 0.75 high, 0.50 moderate, 0.25 low.
 
-Do NOT provide a recommendation.
-The application will determine the recommendation
-from the calculated overall score.
-
-Return ONLY valid JSON using exactly this structure.
+Do NOT calculate overall_score or provide a recommendation.
+Return ONLY valid JSON:
 
 {{
   "company_name": "{state.company_name}",
@@ -125,60 +220,7 @@ Return ONLY valid JSON using exactly this structure.
     "<evidence-based reason>"
   ]
 }}
-
-Do not copy placeholder values.
-Calculate every score independently from the provided evidence.
 """
-
-        response = self.llm.generate(
-            prompt=prompt,
-            temperature=0.0,
-            max_tokens=600,
-        )
-
-        assessment = ScoringAssessment.model_validate_json(
-            response
-        )
-
-        overall_score = (
-            assessment.growth_score * self.GROWTH_WEIGHT
-            + assessment.expansion_score * self.EXPANSION_WEIGHT
-            + assessment.hiring_score * self.HIRING_WEIGHT
-            + assessment.technology_score * self.TECHNOLOGY_WEIGHT
-            + assessment.strategic_score * self.STRATEGIC_WEIGHT
-        )
-
-        recommendation = self._get_recommendation(
-            overall_score
-        )
-
-        if on_progress is not None:
-            on_progress(
-                f"{state.company_name}: {overall_score:.0f} · {recommendation}"
-            )
-            on_progress(
-                "Why: "
-                f"growth {assessment.growth_score:.0f}, "
-                f"expansion {assessment.expansion_score:.0f}, "
-                f"hiring {assessment.hiring_score:.0f}, "
-                f"tech {assessment.technology_score:.0f}, "
-                f"strategy {assessment.strategic_score:.0f}"
-            )
-            for line in reason_lines(" ".join(assessment.reasons), limit=3):
-                on_progress(line)
-
-        return ProspectScore(
-            company_name=assessment.company_name,
-            overall_score=overall_score,
-            growth_score=assessment.growth_score,
-            expansion_score=assessment.expansion_score,
-            hiring_score=assessment.hiring_score,
-            technology_score=assessment.technology_score,
-            strategic_score=assessment.strategic_score,
-            confidence=assessment.confidence,
-            recommendation=recommendation,
-            reasons=assessment.reasons,
-        )
 
     def _get_recommendation(
         self,
@@ -192,4 +234,3 @@ Calculate every score independently from the provided evidence.
             return "Potential prospect"
 
         return "Low-priority prospect"
-

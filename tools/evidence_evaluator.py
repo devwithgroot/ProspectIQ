@@ -29,6 +29,30 @@ _SIGNAL_TERMS = (
     "cto",
 )
 
+_SIGNAL_TERM_GROUPS = (
+    ("expand", "expansion"),
+)
+
+_GROUPED_TERMS = {
+    term
+    for group in _SIGNAL_TERM_GROUPS
+    for term in group
+}
+
+_BOUNDARY_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def _signal_term_pattern(term: str) -> re.Pattern[str]:
+    cached = _BOUNDARY_CACHE.get(term)
+    if cached is None:
+        cached = re.compile(rf"\b{re.escape(term)}\b")
+        _BOUNDARY_CACHE[term] = cached
+    return cached
+
+
+def _signal_term_matches(text: str, term: str) -> bool:
+    return _signal_term_pattern(term).search(text) is not None
+
 
 class EvidenceEvaluator:
     def evaluate(
@@ -64,14 +88,21 @@ class EvidenceEvaluator:
         return evidence
 
     def _calculate_signal_relevance(self, text: str) -> float:
-        matches = sum(
-            1
-            for term in _SIGNAL_TERMS
-            if term in text
-        )
-        if matches == 0:
+        match_count = 0
+
+        for group in _SIGNAL_TERM_GROUPS:
+            if any(_signal_term_matches(text, term) for term in group):
+                match_count += 1
+
+        for term in _SIGNAL_TERMS:
+            if term in _GROUPED_TERMS:
+                continue
+            if _signal_term_matches(text, term):
+                match_count += 1
+
+        if match_count == 0:
             return 0.0
-        return min(matches / 4.0, 1.0)
+        return min(match_count / 4.0, 1.0)
 
     def _calculate_goal_relevance(
         self,

@@ -12,7 +12,7 @@ from agents.contact_profile_agent import ContactProfileAgent
 from app.onboarding import OnboardingAgent
 from app.orchestrator import ProspectIQ
 from app.people_mapper import person_to_contact
-from app.prospect_upload import UploadedProspect, load_prospect_csv
+from app.prospect_upload import UploadedProspect, company_domain_from_website, load_prospect_csv
 from app.report_mapper import report_to_company
 from tools.people_data import PeopleDataTool
 from config.excon_schemas import (
@@ -141,6 +141,7 @@ class SellerPipeline:
                     report = self.analyzer.analyze(
                         company_name=row.company_name,
                         research_goal=research_goal,
+                        company_domain=company_domain_from_website(row.website),
                         on_progress=note,
                     )
                     company, profile = report_to_company(

@@ -468,11 +468,26 @@ class ResearchAgent:
             note(f"Why: not much public detail yet on {full_name}")
         return evaluated
 
-    def _should_keep(self, evidence: Evidence) -> bool:
-        return (
-            evidence.relevance >= self.KEEP_RELEVANCE
-            or evidence.quality >= self.KEEP_QUALITY
-        )
+    def _should_keep(self, evidence: Evidence, state: ResearchState) -> bool:
+        if evidence.relevance >= self.KEEP_RELEVANCE:
+            return True
+        if evidence.quality < self.KEEP_QUALITY:
+            return False
+        return self._evidence_linked_to_prospect(evidence, state)
+
+    def _evidence_linked_to_prospect(
+        self,
+        evidence: Evidence,
+        state: ResearchState,
+    ) -> bool:
+        combined = f"{evidence.title} {evidence.content}".lower()
+        if state.company_name and state.company_name.lower() in combined:
+            return True
+        if state.company_domain:
+            domain = state.company_domain.lower().strip().lstrip(".")
+            if domain and domain in evidence.url.lower():
+                return True
+        return False
 
     def _merge_evidence(
         self,
@@ -487,7 +502,7 @@ class ResearchAgent:
         kept: list[Evidence] = []
 
         for evidence in evaluated_results:
-            if not self._should_keep(evidence):
+            if not self._should_keep(evidence, state):
                 continue
 
             key = _normalize_url(evidence.url)

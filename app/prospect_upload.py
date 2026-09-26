@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
@@ -14,6 +15,25 @@ class UploadedProspect(BaseModel):
 
 REQUIRED_COLUMN = "company_name"
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
+
+def company_domain_from_website(website: str | None) -> str | None:
+    """Host-only domain for prospect company URLs (e.g. acme.com)."""
+    if not website or not website.strip():
+        return None
+
+    url = website.strip()
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+
+    host = (urlparse(url).hostname or "").lower().strip()
+    if not host:
+        return None
+
+    if host.startswith("www."):
+        host = host[4:]
+
+    return host or None
 
 
 def load_prospect_csv(path: str | Path) -> list[UploadedProspect]:
