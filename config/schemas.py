@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Any, Literal
 
 
 class Evidence(BaseModel):
@@ -177,29 +178,95 @@ class ProspectReport(BaseModel):
     )
 
 
-class PersonData(BaseModel):
-    id: str | None = None
+class CompanySuggestion(BaseModel):
+    name: str
+    domain: str | None = None
+    location: str | None = None
+    description: str | None = None
+    source_url: str | None = None
 
-    first_name: str | None = None
-    last_name: str | None = None
-    name: str | None = None
+
+class PersonData(BaseModel):
+    name: str
 
     title: str | None = None
+    company: str | None = None
+    location: str | None = None
 
     email: str | None = None
-    email_status: str | None = None
-
     mobile: str | None = None
-    mobile_status: str | None = None
 
-    linkedin_url: str | None = None
+    # ---------------------------------------------------------
+    # PUBLIC WEB EVIDENCE
+    # ---------------------------------------------------------
 
-    organization_name: str | None = None
-    organization_id: str | None = None
+    source_url: str | None = None
+    source_type: str | None = None
+    evidence: str | None = None
 
-    city: str | None = None
-    state: str | None = None
-    country: str | None = None
+    # ---------------------------------------------------------
+    # PROSPEO
+    # ---------------------------------------------------------
 
-    seniority: str | None = None
-    departments: list[str] = Field(default_factory=list)
+    prospeo_verified: bool = False
+    prospeo_person_id: str | None = None
+
+    # ---------------------------------------------------------
+    # PROVENANCE
+    # ---------------------------------------------------------
+
+    data_sources: list[str] = Field(
+        default_factory=list
+    )
+
+    confidence: float | None = None
+
+
+class PeopleSearchResult(BaseModel):
+    status: Literal[
+        "success",
+        "company_confirmation_required",
+        "company_not_found",
+        "no_people_found",
+    ]
+
+    searched_company: str
+
+    resolved_company: str | None = None
+
+    domain: str | None = None
+
+    people: list[PersonData] = Field(
+        default_factory=list
+    )
+
+    suggested_companies: list[
+        CompanySuggestion
+    ] = Field(
+        default_factory=list
+    )
+
+    message: str | None = None
+
+
+
+class News(BaseModel):
+    company_name: str
+
+    title: str
+    url: str
+    source: str | None = None
+    published_at: str | None = None
+
+    summary: str | None = None
+    key_facts: list[str] = Field(default_factory=list)
+
+    people_mentioned: list[str] = Field(default_factory=list)
+    organizations_mentioned: list[str] = Field(default_factory=list)
+    products_mentioned: list[str] = Field(default_factory=list)
+    technologies_mentioned: list[str] = Field(default_factory=list)
+
+    event_date: str | None = None
+    location: str | None = None
+
+    evidence: list[str] = Field(default_factory=list)

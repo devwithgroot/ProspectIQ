@@ -1,328 +1,457 @@
 import os
+import re
 from typing import Any
 
 import requests
 from dotenv import load_dotenv
 
-from config.schemas import PersonData
-
-
 load_dotenv()
+from config.schemas import PersonData
 
 
 class ProspeoProvider:
     """
-    Prospeo API provider for people search.
+    Prospeo API provider.
+
+    Prospeo is used as a structured people-data source and
+    verification/enrichment layer.
+
+    It is NOT treated as the primary source of truth for
+    person identity. Public web evidence is collected first.
     """
 
     BASE_URL = "https://api.prospeo.io"
-    DEFAULT_TIMEOUT = 10
 
     def __init__(
         self,
-        timeout: int = DEFAULT_TIMEOUT,
+        api_key: str | None = None,
+        timeout: int = 30,
     ) -> None:
 
-        if timeout <= 0:
-            raise ValueError(
-                "Timeout must be greater than zero"
-            )
-
-        self.timeout = timeout
-
-        self.api_key = os.getenv(
-            "PROSPEO_API_KEY"
+        self.api_key = (
+            api_key
+            or os.getenv("PROSPEO_API_KEY")
         )
 
         if not self.api_key:
             raise ValueError(
-                "PROSPEO_API_KEY is not configured"
+                "PROSPEO_API_KEY is not set."
             )
 
-        self.headers = {
-            "X-KEY": self.api_key,
+        self.timeout = timeout
+
+    # =========================================================
+    # HTTP
+    # =========================================================
+
+    def _request(
+        self,
+        endpoint: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+
+        url = f"{self.BASE_URL}/{endpoint}"
+
+        headers = {
             "Content-Type": "application/json",
-            "Accept": "application/json",
+            "X-KEY": self.api_key,
         }
+
+        response = requests.post(
+            url,
+            json=payload,
+            headers=headers,
+            timeout=self.timeout,
+        )
+
+        # -----------------------------------------------------
+        # NO RESULTS IS NOT A FATAL ERROR
+        # -----------------------------------------------------
+
+        if response.status_code == 400:
+
+            try:
+                data = response.json()
+            except Exception:
+                data = {}
+
+            if data.get("error_code") == "NO_RESULTS":
+                return {
+                    "no_results": True,
+                    "data": [],
+                }
+
+            raise RuntimeError(
+                f"Prospeo API returned HTTP 400: {data}"
+            )
+
+        response.raise_for_status()
+
+        try:
+            return response.json()
+        except Exception as exc:
+            raise RuntimeError(
+                "Prospeo returned an invalid JSON response."
+            ) from exc
+
+    # =========================================================
+    # SEARCH PEOPLE BY COMPANY
+    # =========================================================
 
     def search_people(
         self,
         company: str | None = None,
         title: str | None = None,
         location: str | None = None,
-        limit: int = 25,
+        limit: int = 10,
     ) -> list[PersonData]:
 
         filters: dict[str, Any] = {}
 
+        # -----------------------------------------------------
+        # Company
+        # -----------------------------------------------------
+
         if company:
+
             filters["company"] = {
                 "names": {
                     "include": [company]
                 }
             }
 
+        # -----------------------------------------------------
+        # Title
+        # -----------------------------------------------------
+
         if title:
-            filters["person_job_title"] = {
-                "include": [title],
-                "match_mode": "CONTAINS",
+
+            filters["job_title"] = {
+                "include": [title]
             }
 
-        if location:
-            filters["person_location_search"] = {
-                "include": [location]
-            }
+        # -----------------------------------------------------
+        # IMPORTANT:
+        #
+        # Don't blindly send arbitrary location strings to
+        # Prospeo. Their location filters use canonical values.
+        #
+        # For now we omit location rather than causing a
+        # malformed request.
+        # -----------------------------------------------------
 
         payload = {
             "page": 1,
+            "limit": limit,
             "filters": filters,
         }
 
         response = self._request(
-            endpoint="/search-person",
-            payload=payload,
+            "search-person",
+            payload,
         )
 
-        results = response.get(
-            "results",
-            []
+        if response.get("no_results"):
+            return []
+
+        return self._parse_people_response(
+            response,
+            limit=limit,
         )
 
-        people = []
+    # =========================================================
+    # SEARCH ONE PERSON
+    # =========================================================
 
-        for result in results[:limit]:
+    def search_person(
+        self,
+        name: str,
+        company: str | None = None,
+        limit: int = 10,
+    ) -> list[PersonData]:
 
-            person = result.get(
-                "person",
-                {}
-            )
+        filters: dict[str, Any] = {}
 
-            company_data = result.get(
-                "company",
-                {}
-            )
+        # -----------------------------------------------------
+        # Person name
+        # -----------------------------------------------------
 
-            people.append(
-                self._parse_person(
-                    person=person,
-                    company=company_data,
-                )
-            )
+        filters["person"] = {
+            "names": {
+                "include": [name]
+            }
+        }
+
+        # -----------------------------------------------------
+        # Company
+        # -----------------------------------------------------
+
+        if company:
+
+            filters["company"] = {
+                "names": {
+                    "include": [company]
+                }
+            }
+
+        payload = {
+            "page": 1,
+            "limit": limit,
+            "filters": filters,
+        }
+
+        response = self._request(
+            "search-person",
+            payload,
+        )
+
+        if response.get("no_results"):
+            return []
+
+        return self._parse_people_response(
+            response,
+            limit=limit,
+        )
+
+    # =========================================================
+    # PARSE RESPONSE
+    # =========================================================
+
+    def _parse_people_response(
+        self,
+        response: dict[str, Any],
+        limit: int = 10,
+    ) -> list[PersonData]:
+
+        raw_people = []
+
+        # Prospeo response structures can vary.
+        # Try common locations.
+
+        if isinstance(
+            response.get("results"),
+            list,
+        ):
+            raw_people = response["results"]
+
+        elif isinstance(
+            response.get("people"),
+            list,
+        ):
+            raw_people = response["people"]
+
+        elif isinstance(
+            response.get("data"),
+            list,
+        ):
+            raw_people = response["data"]
+
+        elif isinstance(
+            response.get("data"),
+            dict,
+        ):
+
+            data = response["data"]
+
+            if isinstance(
+                data.get("results"),
+                list,
+            ):
+                raw_people = data["results"]
+
+            elif isinstance(
+                data.get("people"),
+                list,
+            ):
+                raw_people = data["people"]
+
+        people: list[PersonData] = []
+
+        for item in raw_people[:limit]:
+
+            if not isinstance(item, dict):
+                continue
+
+            person = self._parse_person(item)
+
+            if person:
+                people.append(person)
 
         return people
 
-    def _request(
-        self,
-        endpoint: str,
-        payload: dict[str, Any],
-    ) -> dict:
+    # =========================================================
+    # PARSE PERSON
+    # =========================================================
 
-        url = f"{self.BASE_URL}{endpoint}"
-
-        try:
-            response = requests.post(
-                url,
-                headers=self.headers,
-                json=payload,
-                timeout=self.timeout,
-            )
-
-            response.raise_for_status()
-
-        except requests.Timeout as exc:
-            raise RuntimeError(
-                "Prospeo API request timed out."
-            ) from exc
-
-        except requests.HTTPError as exc:
-
-            status_code = (
-                exc.response.status_code
-                if exc.response is not None
-                else "unknown"
-            )
-
-            try:
-                error_data = exc.response.json()
-            except Exception:
-                error_data = {}
-
-            raise RuntimeError(
-                f"Prospeo API returned HTTP "
-                f"{status_code}: {error_data}"
-            ) from exc
-
-        except requests.RequestException as exc:
-            raise RuntimeError(
-                "Failed to communicate with Prospeo API."
-            ) from exc
-
-        try:
-            return response.json()
-
-        except ValueError as exc:
-            raise RuntimeError(
-                "Prospeo returned invalid JSON."
-            ) from exc
-
-    @staticmethod
     def _parse_person(
-        person: dict,
-        company: dict,
-    ) -> PersonData:
+        self,
+        data: dict[str, Any],
+    ) -> PersonData | None:
 
-        # ---------------------------------
-        # Basic person information
-        # ---------------------------------
-
-        person_id = person.get(
-            "person_id"
+        name = (
+            data.get("name")
+            or data.get("full_name")
+            or data.get("person_name")
         )
 
-        first_name = person.get(
-            "first_name"
+        if not name:
+            return None
+
+        company = self._extract_company(data)
+
+        title = (
+            data.get("title")
+            or data.get("job_title")
+            or data.get("position")
         )
 
-        last_name = person.get(
-            "last_name"
+        location = (
+            data.get("location")
+            or data.get("city")
         )
 
-        full_name = person.get(
-            "full_name"
+        email = (
+            data.get("email")
+            or data.get("work_email")
         )
 
-        linkedin_url = person.get(
-            "linkedin_url"
+        mobile = (
+            data.get("mobile")
+            or data.get("mobile_number")
+            or data.get("phone")
         )
 
-        # ---------------------------------
-        # Current job information
-        # ---------------------------------
-
-        current_job_title = person.get(
-            "current_job_title"
+        person_id = (
+            data.get("id")
+            or data.get("person_id")
+            or data.get("person_oid")
         )
-
-        job_history = person.get(
-            "job_history",
-            []
-        )
-
-        current_job = {}
-
-        if isinstance(job_history, list):
-
-            for job in job_history:
-
-                if job.get("current") is True:
-                    current_job = job
-                    break
-
-            if not current_job and job_history:
-                current_job = job_history[0]
-
-        seniority = current_job.get(
-            "seniority"
-        )
-
-        departments = current_job.get(
-            "departments",
-            []
-        )
-
-        # ---------------------------------
-        # Email
-        # ---------------------------------
-
-        email_data = person.get(
-            "email"
-        )
-
-        email = None
-        email_status = None
-
-        if isinstance(email_data, dict):
-
-            email = email_data.get(
-                "email"
-            )
-
-            email_status = email_data.get(
-                "status"
-            )
-
-        elif isinstance(email_data, str):
-
-            email = email_data
-
-        # ---------------------------------
-        # Location
-        # ---------------------------------
-
-        location = person.get(
-            "location",
-            {}
-        )
-
-        if not isinstance(location, dict):
-            location = {}
-
-        city = location.get(
-            "city"
-        )
-
-        state = location.get(
-            "state"
-        )
-
-        country = location.get(
-            "country"
-        )
-
-        # ---------------------------------
-        # Company
-        # ---------------------------------
-
-        organization_id = company.get(
-            "company_id"
-        )
-
-        organization_name = company.get(
-            "name"
-        )
-
-        # ---------------------------------
-        # Build normalized model
-        # ---------------------------------
 
         return PersonData(
-            id=person_id,
-
-            first_name=first_name,
-
-            last_name=last_name,
-
-            name=full_name,
-
-            title=current_job_title,
-
+            name=str(name),
+            title=title,
+            company=company,
+            location=location,
             email=email,
+            mobile=mobile,
+            prospeo_verified=True,
+            prospeo_person_id=person_id,
+            data_sources=["prospeo"],
+            confidence=0.90,
+        )
 
-            email_status=email_status,
+    # =========================================================
+    # COMPANY EXTRACTION
+    # =========================================================
 
-            linkedin_url=linkedin_url,
+    def _extract_company(
+        self,
+        data: dict[str, Any],
+    ) -> str | None:
 
-            organization_name=organization_name,
+        company = data.get("company")
 
-            organization_id=organization_id,
+        if isinstance(company, str):
+            return company
 
-            city=city,
+        if isinstance(company, dict):
 
-            state=state,
+            return (
+                company.get("name")
+                or company.get("company_name")
+            )
 
-            country=country,
+        return (
+            data.get("company_name")
+            or data.get("organization")
+        )
 
-            seniority=seniority,
+    # =========================================================
+    # NORMALIZATION HELPERS
+    # =========================================================
 
-            departments=departments,
+    @staticmethod
+    def normalize_name(
+        value: str,
+    ) -> str:
+
+        value = value.lower().strip()
+
+        value = re.sub(
+            r"[^a-z0-9\s]",
+            " ",
+            value,
+        )
+
+        value = re.sub(
+            r"\s+",
+            " ",
+            value,
+        )
+
+        return value
+
+    @staticmethod
+    def normalize_company(
+        value: str,
+    ) -> str:
+
+        value = value.lower().strip()
+
+        value = re.sub(
+            r"[.,]",
+            "",
+            value,
+        )
+
+        value = re.sub(
+            r"\b(private|pvt|limited|ltd|llp|incorporated|inc)\b",
+            "",
+            value,
+        )
+
+        value = re.sub(
+            r"\s+",
+            " ",
+            value,
+        )
+
+        return value.strip()
+
+    # =========================================================
+    # MATCH PERSON
+    # =========================================================
+
+    def person_matches(
+        self,
+        web_person: PersonData,
+        prospeo_person: PersonData,
+        company: str,
+    ) -> bool:
+
+        web_name = self.normalize_name(
+            web_person.name
+        )
+
+        prospeo_name = self.normalize_name(
+            prospeo_person.name
+        )
+
+        if web_name != prospeo_name:
+            return False
+
+        expected_company = self.normalize_company(
+            company
+        )
+
+        actual_company = self.normalize_company(
+            prospeo_person.company or ""
+        )
+
+        if not actual_company:
+            return False
+
+        return (
+            expected_company in actual_company
+            or actual_company in expected_company
         )

@@ -12,11 +12,11 @@ class PeopleEnrichmentTool(BaseTool):
     name = "people_enrichment"
 
     description = (
-        "Enrich a person with verified business contact "
-        "information including work email and mobile number."
+        "Enrich a previously identified person with "
+        "verified business contact information."
     )
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.provider = ProspeoEnrichmentProvider()
 
     def execute(
