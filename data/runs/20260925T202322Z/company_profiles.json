@@ -1,0 +1,44 @@
+[
+  {
+    "profile_id": "cp_test",
+    "company_id": "co_test",
+    "executive_summary": "Test is not a valuable prospect for TezBytes due to a lack of direct evidence about the company's business activities, financial health, or strategic direction. All research evidence references other companies, making it impossible to evaluate Test as a potential sales opportunity.",
+    "overall_score": 35.25,
+    "recommendation": "Low-priority prospect",
+    "signals": [
+      {
+        "type": "research",
+        "description": "No direct evidence of Test's business signals such as growth, expansion, hiring, technology, or strategic direction.",
+        "strength": "medium",
+        "evidence": null
+      },
+      {
+        "type": "research",
+        "description": "No information about Test's operations, financial health, or leadership changes.",
+        "strength": "medium",
+        "evidence": null
+      },
+      {
+        "type": "research",
+        "description": "No data on potential buyers, champions, or leaders within Test.",
+        "strength": "medium",
+        "evidence": null
+      }
+    ],
+    "pain_points": [
+      "No direct information about Test's business activities or strategic goals, making it difficult to assess its potential as a prospect.",
+      "All research evidence references other companies, leading to confusion and misinterpretation."
+    ],
+    "risks": [
+      "No direct information about Test's business activities or strategic goals, making it difficult to assess its potential as a prospect.",
+      "All research evidence references other companies, leading to confusion and misinterpretation."
+    ],
+    "recommended_sales_approach": "Do not pursue Test as a sales lead. The lack of direct information about the company makes it impossible to build a credible contact profile or assess its potential as a prospect for TezBytes.",
+    "why_relevant_to_user": "Do not pursue Test as a sales lead. The lack of direct information about the company makes it impossible to build a credible contact profile or assess its potential as a prospect for TezBytes. Relevant to TezBytes based on the uploaded list and research.",
+    "matched_product_ids": [
+      "pd_workflow_reviews_1",
+      "pd_automation_solutions_2",
+      "pd_custom_software_development_3"
+    ]
+  }
+]

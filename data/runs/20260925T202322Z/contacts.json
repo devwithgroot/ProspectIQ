@@ -1,0 +1,74 @@
+[
+  {
+    "contact_id": "ct_aaaa45cffe883d4b6268beec",
+    "company_id": "co_test",
+    "full_name": "Rahmat Shah Eshaqzai",
+    "title": "Systems Administrator Specialist",
+    "seniority": "Manager",
+    "department": "Servers",
+    "decision_role": "influencer",
+    "email": null,
+    "phone": null,
+    "linkedin_url": "https://www.linkedin.com/in/rahmat-shah-eshaqzai-532a26212",
+    "whatsapp_number": null,
+    "slack_user_id": null,
+    "preferred_channel": "linkedin",
+    "consent": {
+      "email": false,
+      "linkedin": true,
+      "whatsapp": false,
+      "slack": false,
+      "sms": false
+    },
+    "do_not_contact": false,
+    "timezone": "Asia/Kolkata"
+  },
+  {
+    "contact_id": "ct_aaaa83062ebbd7cf0979ecae",
+    "company_id": "co_test",
+    "full_name": "Carla Rojas",
+    "title": "Directrice \u00e9tudes de march\u00e9",
+    "seniority": "Director",
+    "department": "Unknown",
+    "decision_role": "influencer",
+    "email": null,
+    "phone": null,
+    "linkedin_url": "https://www.linkedin.com/in/carla-rojas-97b462119",
+    "whatsapp_number": null,
+    "slack_user_id": null,
+    "preferred_channel": "linkedin",
+    "consent": {
+      "email": false,
+      "linkedin": true,
+      "whatsapp": false,
+      "slack": false,
+      "sms": false
+    },
+    "do_not_contact": false,
+    "timezone": "Asia/Kolkata"
+  },
+  {
+    "contact_id": "ct_aaaa4a9c96f6e5a0af52b736",
+    "company_id": "co_test",
+    "full_name": "Milo Meyers",
+    "title": "Test Analyst",
+    "seniority": "Entry",
+    "department": "Test / Quality Assurance",
+    "decision_role": "influencer",
+    "email": null,
+    "phone": null,
+    "linkedin_url": "https://www.linkedin.com/in/milo-meyers-79694a7",
+    "whatsapp_number": null,
+    "slack_user_id": null,
+    "preferred_channel": "linkedin",
+    "consent": {
+      "email": false,
+      "linkedin": true,
+      "whatsapp": false,
+      "slack": false,
+      "sms": false
+    },
+    "do_not_contact": false,
+    "timezone": "Asia/Kolkata"
+  }
+]

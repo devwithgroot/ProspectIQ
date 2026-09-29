@@ -2,34 +2,60 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from app.onboarding import OnboardingAgent
+from agents.contact_profile_agent import ContactProfileAgent
+from app.onboarding import OnboardingAgent, reuse_seller, same_website
 from app.orchestrator import ProspectIQ
+from app.people_mapper import person_to_contact
 from app.prospect_upload import UploadedProspect, load_prospect_csv
-from app.report_mapper import report_to_prospect
-from config.excon_schemas import Product, Prospect, User
-from config.schemas import ProspectReport
+from app.report_mapper import report_to_company
+from config.research_log import get_logger
+from tools.people_data import PeopleDataTool
+from config.excon_schemas import (
+    Company,
+    CompanyProfile,
+    Contact,
+    ContactProfile,
+    Product,
+    User,
+)
 
 
 RUNS_DIR = Path(__file__).resolve().parent.parent / "data" / "runs"
+PEOPLE_PER_COMPANY = 3
+log = get_logger("pipeline")
 
 
 class PipelineResult(BaseModel):
     user: User
     products: list[Product]
     uploaded: list[UploadedProspect]
-    prospects: list[Prospect]
-    reports: list[ProspectReport] = Field(default_factory=list)
+    companies: list[Company]
+    company_profiles: list[CompanyProfile] = Field(default_factory=list)
+    contacts: list[Contact] = Field(default_factory=list)
+    contact_profiles: list[ContactProfile] = Field(default_factory=list)
 
 
-class SellerPipeline:
+class ResearchCancelled(Exception):
+    def __init__(self, result: PipelineResult | None = None) -> None:
+        super().__init__("Research stopped.")
+        self.result = result
+
+
+class ResearchSkipped(Exception):
+    pass
+
+
+class UserPipeline:
     def __init__(self):
         self.analyzer = ProspectIQ()
         self.onboarder = OnboardingAgent()
+        self.contact_profiler = ContactProfileAgent()
 
     def run(
         self,
@@ -37,68 +63,229 @@ class SellerPipeline:
         full_name: str,
         phone: str,
         email: str,
+        outreach_email: str | None = None,
         website: str,
         prospects_csv: str | Path,
-        title: str | None = None,
+        title: str,
+        industry: str,
+        outreach_email_verified: bool = True,
+        saved_user: User | None = None,
+        saved_products: list[Product] | None = None,
+        on_progress: Callable[[str], None] | None = None,
     ) -> PipelineResult:
-        print("\n==============================")
-        print("SELLER ONBOARDING")
-        print("==============================")
+        def note(message: str) -> None:
+            log.info(message)
+            if on_progress is not None:
+                on_progress(message)
 
-        user, products = self.onboarder.enroll(
-            full_name=full_name,
-            phone=phone,
-            email=email,
-            website=website,
-            title=title,
-        )
+        user: User | None = None
+        products: list[Product] = []
+        uploaded: list[UploadedProspect] = []
+        companies: list[Company] = []
+        company_profiles: list[CompanyProfile] = []
+        contacts: list[Contact] = []
+        contact_profiles: list[ContactProfile] = []
 
-        print(f"Seller: {user.full_name} <{user.email}>")
-        print(f"Company: {user.company.name}")
-        print(f"Products: {', '.join(product.name for product in products)}")
+        try:
+            if (
+                saved_user is not None
+                and saved_products
+                and same_website(saved_user.company.website, website)
+            ):
+                log.info("Reusing saved seller company %s", saved_user.company.name)
+                user, products = reuse_seller(
+                    saved_user,
+                    saved_products,
+                    full_name=full_name,
+                    phone=phone,
+                    email=email,
+                    outreach_email=outreach_email or email,
+                    website=website,
+                    title=title,
+                    industry=industry,
+                    outreach_email_verified=outreach_email_verified,
+                )
+                note(f"Using your saved {user.company.name} company")
+            else:
+                log.info("User onboarding")
+                user, products = self.onboarder.enroll(
+                    full_name=full_name,
+                    phone=phone,
+                    email=email,
+                    outreach_email=outreach_email or email,
+                    outreach_email_verified=outreach_email_verified,
+                    website=website,
+                    title=title,
+                    industry=industry,
+                    on_progress=note,
+                )
 
-        uploaded = load_prospect_csv(prospects_csv)
-        print(f"\nUploaded prospects: {len(uploaded)}")
-
-        product_names = ", ".join(product.name for product in products)
-        reports: list[ProspectReport] = []
-        prospects: list[Prospect] = []
-
-        for index, row in enumerate(uploaded, start=1):
-            print("\n==============================")
-            print(f"ORCHESTRATOR {index}/{len(uploaded)}: {row.company_name}")
-            print("==============================")
-
-            research_goal = (
-                f"Determine whether {row.company_name} is a high-value "
-                f"B2B sales prospect for {user.company.name}, which sells "
-                f"{product_names}."
+            log.info(
+                "User %s <%s> company=%s products=%s",
+                user.full_name,
+                user.email,
+                user.company.name,
+                [product.name for product in products],
             )
-
-            report = self.analyzer.analyze(
-                company_name=row.company_name,
-                research_goal=research_goal,
-            )
-            reports.append(report)
-            prospects.append(
-                report_to_prospect(
-                    report=report,
-                    uploaded=row,
-                    user=user,
-                    products=products,
+            note(
+                f"Got it — {user.company.name}"
+                + (
+                    f", selling {', '.join(product.name for product in products[:3])}"
+                    if products
+                    else ""
                 )
             )
 
-        result = PipelineResult(
-            user=user,
-            products=products,
-            uploaded=uploaded,
-            prospects=prospects,
-            reports=reports,
-        )
-        saved = save_run(result)
-        print(f"\nSaved run to {saved}")
-        return result
+            uploaded = load_prospect_csv(prospects_csv)
+            log.info("Uploaded prospects: %s", [row.company_name for row in uploaded])
+
+            product_names = ", ".join(product.name for product in products)
+
+            for index, row in enumerate(uploaded, start=1):
+                log.info(
+                    "Orchestrator %s/%s: %s",
+                    index,
+                    len(uploaded),
+                    row.company_name,
+                )
+
+                research_goal = (
+                    f"Determine whether {row.company_name} is a high-value "
+                    f"B2B sales prospect for {user.company.name}, which sells "
+                    f"{product_names}. Also find who to talk to there "
+                    f"(buyers, champions, and relevant leaders) so we can "
+                    f"build contact profiles."
+                )
+
+                try:
+                    if len(uploaded) == 1:
+                        note(f"Looking into {row.company_name}")
+                    else:
+                        note(
+                            f"Looking into {row.company_name} "
+                            f"({index}/{len(uploaded)})"
+                        )
+                    report = self.analyzer.analyze(
+                        company_name=row.company_name,
+                        research_goal=research_goal,
+                        on_progress=note,
+                    )
+                    company, profile = report_to_company(
+                        report=report,
+                        uploaded=row,
+                        user=user,
+                        products=products,
+                    )
+                    companies.append(company)
+                    company_profiles.append(profile)
+                    note(f"Ready with the {row.company_name} briefing")
+                    found = self._find_people(
+                        company,
+                        profile,
+                        products,
+                        note,
+                        company_evidence=list(
+                            getattr(self.analyzer.last_state, "evidence", []) or []
+                        ),
+                    )
+                    contacts.extend(found[0])
+                    contact_profiles.extend(found[1])
+                    if index < len(uploaded):
+                        note("Moving to the next company")
+                except ResearchSkipped:
+                    note(f"Skipped {row.company_name}")
+                    continue
+
+            note("Putting your briefings together")
+            result = PipelineResult(
+                user=user,
+                products=products,
+                uploaded=uploaded,
+                companies=companies,
+                company_profiles=company_profiles,
+                contacts=contacts,
+                contact_profiles=contact_profiles,
+            )
+            saved = save_run(result)
+            log.info("Saved run to %s", saved)
+            return result
+        except ResearchCancelled:
+            if user is None or not companies:
+                raise ResearchCancelled() from None
+            result = PipelineResult(
+                user=user,
+                products=products,
+                uploaded=uploaded,
+                companies=companies,
+                company_profiles=company_profiles,
+                contacts=contacts,
+                contact_profiles=contact_profiles,
+            )
+            saved = save_run(result)
+            log.info("Saved partial run to %s", saved)
+            raise ResearchCancelled(result) from None
+
+    def _find_people(
+        self,
+        company: Company,
+        company_profile: CompanyProfile,
+        products: list[Product],
+        note: Callable[[str], None],
+        company_evidence: list | None = None,
+    ) -> tuple[list[Contact], list[ContactProfile]]:
+        note(f"Finding people at {company.name}")
+        try:
+            people = PeopleDataTool().execute(company=company.name, limit=5)
+        except Exception as exc:
+            log.exception("People search failed for %s (%s)", company.name, exc)
+            note(f"Couldn’t find people at {company.name} yet")
+            return [], []
+
+        seen: set[str] = set()
+        contacts: list[Contact] = []
+        for person in people:
+            contact = person_to_contact(person, company.company_id)
+            if contact is None or contact.contact_id in seen:
+                continue
+            seen.add(contact.contact_id)
+            contacts.append(contact)
+            if len(contacts) >= PEOPLE_PER_COMPANY:
+                break
+
+        if not contacts:
+            note(f"No people listed yet for {company.name}")
+            return [], []
+
+        note(f"Found {len(contacts)} people at {company.name}")
+        profiles: list[ContactProfile] = []
+        top_company = sorted(
+            company_evidence or [],
+            key=lambda item: getattr(item, "relevance", 0),
+            reverse=True,
+        )[:4]
+        for contact in contacts:
+            person_evidence = self.analyzer.research_agent.lookup_person(
+                full_name=contact.full_name,
+                company_name=company.name,
+                title=contact.title,
+                research_goal=(
+                    f"Find public facts about {contact.full_name}, "
+                    f"{contact.title} at {company.name}, that help a "
+                    f"salesperson brief this contact."
+                ),
+                on_progress=note,
+            )
+            profiles.append(
+                self.contact_profiler.generate(
+                    contact=contact,
+                    company=company,
+                    company_profile=company_profile,
+                    products=products,
+                    evidence=list(person_evidence) + list(top_company),
+                    on_progress=note,
+                )
+            )
+        return contacts, profiles
 
 
 def save_run(result: PipelineResult) -> Path:
@@ -117,16 +304,30 @@ def save_run(result: PipelineResult) -> Path:
         ),
         encoding="utf-8",
     )
-    (folder / "prospects.json").write_text(
+    (folder / "companies.json").write_text(
         json.dumps(
-            [prospect.model_dump() for prospect in result.prospects],
+            [company.model_dump() for company in result.companies],
             indent=2,
         ),
         encoding="utf-8",
     )
-    (folder / "reports.json").write_text(
+    (folder / "company_profiles.json").write_text(
         json.dumps(
-            [report.model_dump() for report in result.reports],
+            [profile.model_dump() for profile in result.company_profiles],
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (folder / "contacts.json").write_text(
+        json.dumps(
+            [contact.model_dump() for contact in result.contacts],
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (folder / "contact_profiles.json").write_text(
+        json.dumps(
+            [profile.model_dump() for profile in result.contact_profiles],
             indent=2,
         ),
         encoding="utf-8",
@@ -154,28 +355,34 @@ def main() -> None:
     parser.add_argument("--name")
     parser.add_argument("--phone")
     parser.add_argument("--email")
+    parser.add_argument("--outreach-email")
     parser.add_argument("--website")
     parser.add_argument("--title")
+    parser.add_argument("--industry")
     parser.add_argument("--prospects", help="CSV with company_name,website,notes")
     args = parser.parse_args()
 
     full_name = args.name or _prompt("Your name")
     phone = args.phone or _prompt("Phone")
     email = args.email or _prompt("Email")
+    outreach_email = args.outreach_email or email
     website = args.website or _prompt("Company website")
-    title = args.title
+    industry = args.industry or _prompt("Industry")
+    title = args.title or _prompt("Title")
     prospects_csv = args.prospects or _prompt(
         "Prospect CSV path",
         "data/uploads/sample_prospects.csv",
     )
 
-    SellerPipeline().run(
+    UserPipeline().run(
         full_name=full_name,
         phone=phone,
         email=email,
+        outreach_email=outreach_email,
         website=website,
         prospects_csv=prospects_csv,
         title=title,
+        industry=industry,
     )
 
 

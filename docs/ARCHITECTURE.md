@@ -16,12 +16,12 @@ Mac mini :8080
 
 `LLMClient` is the only module that knows the MLX URL and model name. Agents call `llm.generate()`. Structured calls also run through `llm/json_util.py` (strip fences / `<think>`, retry once). Tavily is only used through `WebSearchTool`.
 
-## Seller pipeline (current entry)
+## User pipeline (current entry)
 
 See [PIPELINE.md](PIPELINE.md). After signup fields + CSV, the orchestrator runs on the real APIs:
 
 ```text
-name, phone, email, website
+name, phone, work email, industry, title, website (suggested from the work-email domain)
         │
         ▼
 WebsiteReaderTool + MLX     →  User + Products
@@ -83,7 +83,7 @@ User + matched Products + Prospect + ContactProfile
     → skip if DNC / no handle / no consent
     → primary channel (preferred, else first eligible)
     → OutreachAgent (one LLM JSON draft)
-    → seller edit
+    → user edit
     → approve
     → Connector.send()   # refused unless approved
 ```
@@ -95,7 +95,7 @@ Connectors: email (SMTP), Slack (Web API), SMS (Twilio-shaped), WhatsApp (Cloud 
 | Tool | Status | Used by |
 |---|---|---|
 | `WebSearchTool` | Live Tavily | Research agent |
-| `WebsiteReaderTool` | Live fetch + readable text | Seller onboarding (`OnboardingAgent`) |
+| `WebsiteReaderTool` | Live fetch + readable text | User onboarding (`OnboardingAgent`) |
 | `CompanyDataTool` | `NotImplementedError` | Future BDL / provider |
 | `EvidenceEvaluator` | Keyword + domain heuristics | Research agent |
 | `MockSearchTool` | Dev stub | Early tests only |
@@ -105,13 +105,14 @@ Connectors: email (SMTP), Slack (Web API), SMS (Twilio-shaped), WhatsApp (Cloud 
 | File | Role |
 |---|---|
 | `config/schemas.py` | Research evidence, scores, `ProspectReport` |
+| `config/catalog.json` | Closed `Industry` and `UserTitle` lists, titles per industry |
 | `config/excon_schemas.py` | User, Product, Prospect, Contact, Profile, drafts, events |
 | `.env` | MLX, Tavily, connector keys. Never commit |
 
 ## What is not in the architecture yet
 
-- HTTP/API or browser UI
-- Signup / session
+- Full app shell beyond the Next.js form (history, EXCON, auth)
+- Signup / session persistence
 - Persistence (DB / CRM)
 - Contact discovery from Phase 1
 - EXCON fed from pipeline runs (still mock contacts)

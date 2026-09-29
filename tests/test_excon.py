@@ -9,16 +9,18 @@ def main():
     print("==============================")
 
     bundle = load_mock_bundle()
-    prospect = bundle.prospect_map()["pr_asian_paints"]
-    contacts = bundle.contacts_for(prospect.prospect_id)
-    profiles = bundle.profiles_for(prospect.prospect_id)
-    products = bundle.products_for(prospect)
+    company = bundle.company_map()["pr_asian_paints"]
+    company_profile = bundle.company_profile_map()[company.company_id]
+    contacts = bundle.contacts_for(company.company_id)
+    profiles = bundle.contact_profiles_for(company.company_id)
+    products = bundle.products_for(company_profile)
 
     excon = Excon(dry_run=True, dnc=bundle.dnc)
 
     batch = excon.prepare(
         user=bundle.user,
-        prospect=prospect,
+        company=company,
+        company_profile=company_profile,
         profiles=profiles,
         contacts=contacts,
         products=products,

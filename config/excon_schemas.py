@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from config.catalog import Industry, UserTitle
+
 
 Channel = Literal["email", "linkedin", "whatsapp", "slack", "sms"]
 
@@ -29,9 +31,9 @@ EventType = Literal[
 DncKind = Literal["email", "phone", "contact_id"]
 
 
-class SellerCompany(BaseModel):
+class UserCompany(BaseModel):
     name: str
-    industry: str
+    industry: Industry
     website: str
     size: str
     description: str
@@ -48,13 +50,15 @@ class SenderVoice(BaseModel):
 class User(BaseModel):
     user_id: str
     full_name: str
-    title: str
+    title: UserTitle
     email: str
+    outreach_email: str
+    outreach_email_verified: bool = False
     phone: str | None = None
     linkedin_url: str | None = None
     locale: str = "en-IN"
     product_ids: list[str] = Field(default_factory=list)
-    company: SellerCompany
+    company: UserCompany
     voice: SenderVoice
 
 
@@ -74,16 +78,16 @@ class Product(BaseModel):
     proof_points: list[str] = Field(default_factory=list)
 
 
-class ProspectSignal(BaseModel):
+class CompanySignal(BaseModel):
     type: str
     description: str
     strength: str
     evidence: str | None = None
 
 
-class Prospect(BaseModel):
-    prospect_id: str
-    company_name: str
+class Company(BaseModel):
+    company_id: str
+    name: str
     website: str | None = None
     industry: str
     headquarters: str | None = None
@@ -91,13 +95,21 @@ class Prospect(BaseModel):
     founded_year: int | None = None
     description: str
     products_services: list[str] = Field(default_factory=list)
-    signals: list[ProspectSignal] = Field(default_factory=list)
-    pain_points: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
+
+
+class CompanyProfile(BaseModel):
+    profile_id: str
+    company_id: str
+    executive_summary: str
     overall_score: float = Field(ge=0.0, le=100.0)
     recommendation: str
+    signals: list[CompanySignal] = Field(default_factory=list)
+    pain_points: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    recommended_sales_approach: str
     why_relevant_to_user: str
     matched_product_ids: list[str] = Field(default_factory=list)
-    sources: list[str] = Field(default_factory=list)
 
 
 class ChannelConsent(BaseModel):
@@ -113,7 +125,7 @@ class ChannelConsent(BaseModel):
 
 class Contact(BaseModel):
     contact_id: str
-    prospect_id: str
+    company_id: str
     full_name: str
     title: str
     seniority: str
@@ -147,7 +159,7 @@ class Contact(BaseModel):
 class ContactProfile(BaseModel):
     profile_id: str
     contact_id: str
-    prospect_id: str
+    company_id: str
     bio: str
     responsibilities: list[str] = Field(default_factory=list)
     interests: list[str] = Field(default_factory=list)
@@ -176,7 +188,7 @@ class DraftContent(BaseModel):
 class OutreachDraft(BaseModel):
     draft_id: str
     contact_id: str
-    prospect_id: str
+    company_id: str
     profile_id: str
     channel: Channel
     subject: str | None = None
@@ -198,7 +210,7 @@ class OutreachPackage(BaseModel):
 class OutreachBatch(BaseModel):
     batch_id: str
     user_id: str
-    prospect_id: str
+    company_id: str
     packages: list[OutreachPackage] = Field(default_factory=list)
     created_at: datetime
 

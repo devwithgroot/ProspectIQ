@@ -1,6 +1,7 @@
 from typing import Any
 import re
 
+from config.research_log import get_logger
 from config.schemas import (
     PersonData,
     PeopleSearchResult,
@@ -15,6 +16,8 @@ from tools.providers.prospeo import (
 from tools.providers.tavily import (
     TavilyProvider,
 )
+
+log = get_logger("people")
 
 
 class PeopleDataTool(BaseTool):

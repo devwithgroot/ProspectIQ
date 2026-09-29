@@ -1,0 +1,110 @@
+[
+  {
+    "product_id": "pd_workflow_reviews_1",
+    "name": "Workflow Reviews",
+    "category": "Consulting & Process Optimization",
+    "description": "TezBytes offers in-depth reviews of business workflows to identify inefficiencies and areas for improvement.",
+    "icp": "India",
+    "target_industries": [
+      "Manufacturing",
+      "Retail",
+      "Services",
+      "IT"
+    ],
+    "value_props": [
+      "Process optimization",
+      "Cost reduction",
+      "Improved efficiency"
+    ],
+    "use_cases": [
+      "Streamlining order processing",
+      "Enhancing customer service workflows",
+      "Optimizing inventory management"
+    ],
+    "differentiators": [
+      "Local expertise in Indian MSMEs",
+      "Customized solutions",
+      "Focus on automation"
+    ],
+    "objections": [],
+    "typical_buyers": [
+      "Small business owners",
+      "Operations managers",
+      "IT managers"
+    ],
+    "pricing_model": null,
+    "proof_points": []
+  },
+  {
+    "product_id": "pd_automation_solutions_2",
+    "name": "Automation Solutions",
+    "category": "Automation Tools",
+    "description": "TezBytes delivers automation tools designed to reduce manual effort and increase productivity across business processes.",
+    "icp": "India",
+    "target_industries": [
+      "Manufacturing",
+      "Retail",
+      "Services",
+      "IT"
+    ],
+    "value_props": [
+      "Time savings",
+      "Error reduction",
+      "Scalability"
+    ],
+    "use_cases": [
+      "Automating data entry",
+      "Streamlining invoicing",
+      "Managing customer interactions"
+    ],
+    "differentiators": [
+      "Industry-specific automation",
+      "Integration with existing systems",
+      "Scalable solutions"
+    ],
+    "objections": [],
+    "typical_buyers": [
+      "Small business owners",
+      "Operations managers",
+      "IT managers"
+    ],
+    "pricing_model": null,
+    "proof_points": []
+  },
+  {
+    "product_id": "pd_custom_software_development_3",
+    "name": "Custom Software Development",
+    "category": "Software Development",
+    "description": "TezBytes develops custom software solutions tailored to the unique needs of Indian MSMEs, enhancing their digital capabilities.",
+    "icp": "India",
+    "target_industries": [
+      "Manufacturing",
+      "Retail",
+      "Services",
+      "IT"
+    ],
+    "value_props": [
+      "Tailored solutions",
+      "Increased competitiveness",
+      "Digital transformation"
+    ],
+    "use_cases": [
+      "Building a custom CRM",
+      "Developing an e-commerce platform",
+      "Creating internal management tools"
+    ],
+    "differentiators": [
+      "Local market understanding",
+      "Agile development",
+      "Post-deployment support"
+    ],
+    "objections": [],
+    "typical_buyers": [
+      "Small business owners",
+      "Operations managers",
+      "IT managers"
+    ],
+    "pricing_model": null,
+    "proof_points": []
+  }
+]

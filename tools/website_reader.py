@@ -3,8 +3,11 @@ from typing import Any
 import requests
 from bs4 import BeautifulSoup
 
+from config.research_log import get_logger
 from config.schemas import WebsiteContent
 from tools.base import BaseTool
+
+log = get_logger("web")
 
 
 class WebsiteReaderTool(BaseTool):
@@ -38,6 +41,7 @@ class WebsiteReaderTool(BaseTool):
     ) -> WebsiteContent:
 
         url = self._validate_url(url)
+        log.info("Fetch website %s", url)
 
         try:
             response = requests.get(
@@ -55,6 +59,7 @@ class WebsiteReaderTool(BaseTool):
             response.raise_for_status()
 
         except requests.Timeout as exc:
+            log.warning("Website timed out: %s", url)
             raise RuntimeError(
                 f"Website request timed out: {url}"
             ) from exc
@@ -101,13 +106,20 @@ class WebsiteReaderTool(BaseTool):
 
         content = self._extract_readable_text(soup)
 
-        return WebsiteContent(
+        page = WebsiteContent(
             url=response.url,
             title=title,
             content=content,
             status_code=response.status_code,
             content_type=content_type,
         )
+        log.info(
+            "Fetch website ok title=%r status=%s chars=%s",
+            title,
+            page.status_code,
+            len(content),
+        )
+        return page
 
     @staticmethod
     def _validate_url(url: str) -> str:

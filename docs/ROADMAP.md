@@ -1,6 +1,6 @@
 # Roadmap
 
-Four phases. Build in this order. Do not skip seller context or approval.
+Four phases. Build in this order. Do not skip user context or approval.
 
 ## Phase 1 — Data collection and scoring
 
@@ -9,7 +9,7 @@ Four phases. Build in this order. Do not skip seller context or approval.
 - Autonomous research loop (planner + Tavily + evidence scores)
 - Five-dimension scoring with deterministic weights
 - Company `ProspectReport`
-- Seller website onboarding (`WebsiteReaderTool` + MLX)
+- User website onboarding (`WebsiteReaderTool` + MLX)
 - Prospect CSV upload → live `analyze()` per company
 - Reports saved under `data/runs/`
 
@@ -25,7 +25,7 @@ Four phases. Build in this order. Do not skip seller context or approval.
 
 - Report agent writes an executive summary, signals, risks, sales approach
 - `report_to_prospect()` maps a live report into `Prospect`
-- Seller company + products inferred from the website
+- User company + products inferred from the website
 - Mock `Contact` and `ContactProfile` records until people are researched
 
 **Next**
@@ -58,7 +58,7 @@ Four phases. Build in this order. Do not skip seller context or approval.
 
 **Next**
 
-- Browser UI for the CLI form
+- Richer Next.js app (history, edit user, EXCON)
 - Prospect list → contact list → draft reviewer
 - Dashboards on drafted / approved / sent / failed
 - Browse `data/runs/` reports in the UI
@@ -68,7 +68,7 @@ Four phases. Build in this order. Do not skip seller context or approval.
 Done as a CLI, not a browser UI:
 
 1. Form: name, phone, email, company URL — `./run_pipeline.sh`
-2. CSV of prospect companies — `data/uploads/sample_prospects.csv`
+2. CSV of prospect companies — `data/uploads/sample_*.csv`
 3. `ProspectIQ.analyze()` runs for each uploaded company
 4. Mock contacts still used for EXCON
-5. Next: wire the saved seller + researched prospects into EXCON, then a real UI
+5. Next: wire the saved user + researched prospects into EXCON, then a real UI

@@ -1,0 +1,30 @@
+{
+  "user_id": "us_anishamsri_gmail_com",
+  "full_name": "Anish Srivastava",
+  "title": "Chief Technology Officer",
+  "email": "anishamsri@gmail.com",
+  "outreach_email": "anishamsri@gmail.com",
+  "outreach_email_verified": true,
+  "phone": "+916203329580",
+  "linkedin_url": null,
+  "locale": "en-IN",
+  "product_ids": [
+    "pd_workflow_reviews_1",
+    "pd_automation_solutions_2",
+    "pd_custom_software_development_3"
+  ],
+  "company": {
+    "name": "TezBytes",
+    "industry": "Software / SaaS",
+    "website": "https://tezbytes.dev",
+    "size": "unknown if not stated",
+    "description": "TezBytes provides workflow reviews, automation, and custom software solutions tailored for Indian MSMEs. The company focuses on improving operational efficiency through technology.",
+    "headquarters": "unknown if not stated"
+  },
+  "voice": {
+    "tone": "professional and concise",
+    "signature": "Anish Srivastava\nanishamsri@gmail.com",
+    "calendar_link": null,
+    "cta": "Suggest a 20-minute working session."
+  }
+}

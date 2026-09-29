@@ -6,7 +6,10 @@ from tavily import TavilyClient
 
 from tools.base import BaseTool
 
+from config.research_log import get_logger
 from config.schemas import Evidence
+
+log = get_logger("tavily")
 
 
 load_dotenv()
@@ -37,10 +40,15 @@ class WebSearchTool(BaseTool):
         **kwargs: Any,
     ) -> list[dict]:
 
-        response = self.client.search(
-            query=query,
-            max_results=max_results,
-        )
+        log.info("Tavily search query=%r max=%s", query, max_results)
+        try:
+            response = self.client.search(
+                query=query,
+                max_results=max_results,
+            )
+        except Exception:
+            log.exception("Tavily search failed query=%r", query)
+            raise
 
         results = []
 
@@ -54,4 +62,5 @@ class WebSearchTool(BaseTool):
                     evidence_type="web",
                 ))
 
-        return results  
+        log.info("Tavily search ok results=%s", len(results))
+        return results

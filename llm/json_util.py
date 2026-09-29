@@ -5,6 +5,10 @@ from typing import TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from config.research_log import get_logger
+
+log = get_logger("json")
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -16,6 +20,44 @@ _THINK_RE = re.compile(
     r"<think>.*?</think>",
     re.DOTALL | re.IGNORECASE,
 )
+_THINK_CAPTURE_RE = re.compile(
+    r"<think>(.*?)</think>",
+    re.DOTALL | re.IGNORECASE,
+)
+_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def extract_think(text: str) -> str:
+    parts = [
+        match.group(1).strip()
+        for match in _THINK_CAPTURE_RE.finditer(text or "")
+        if match.group(1).strip()
+    ]
+    return " ".join(parts)
+
+
+def reason_lines(
+    text: str,
+    *,
+    limit: int = 2,
+    width: int = 180,
+) -> list[str]:
+    cleaned = " ".join((text or "").split())
+    if not cleaned:
+        return []
+
+    sentences = [part.strip() for part in _SENTENCE_RE.split(cleaned) if part.strip()]
+    if not sentences:
+        sentences = [cleaned]
+
+    lines: list[str] = []
+    for sentence in sentences:
+        if len(sentence) > width:
+            sentence = sentence[: width - 1].rsplit(" ", 1)[0] + "…"
+        lines.append(f"Why: {sentence}")
+        if len(lines) >= limit:
+            break
+    return lines
 
 
 def extract_json_text(text: str) -> str:
@@ -63,6 +105,12 @@ def generate_model(
                 "Return ONLY valid JSON. No markdown. No extra text."
             )
 
+        log.info(
+            "Parse %s attempt=%s tokens=%s",
+            model_cls.__name__,
+            attempt + 1,
+            max_tokens,
+        )
         response = llm.generate(
             prompt=retry_prompt,
             temperature=temperature,
@@ -70,9 +118,18 @@ def generate_model(
         )
 
         try:
-            return parse_model(model_cls, response)
+            parsed = parse_model(model_cls, response)
         except (ValidationError, ValueError) as exc:
             last_error = exc
+            log.warning(
+                "Parse %s failed attempt=%s: %s",
+                model_cls.__name__,
+                attempt + 1,
+                exc,
+            )
+            continue
+        log.info("Parse %s ok", model_cls.__name__)
+        return parsed
 
     raise ValueError(
         f"LLM did not return valid {model_cls.__name__} JSON: {last_error}"

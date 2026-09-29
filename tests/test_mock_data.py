@@ -9,7 +9,7 @@ def main():
     bundle = load_mock_bundle()
 
     product_ids = {product.product_id for product in bundle.products}
-    prospect_ids = {prospect.prospect_id for prospect in bundle.prospects}
+    company_ids = {company.company_id for company in bundle.companies}
     contact_ids = {contact.contact_id for contact in bundle.contacts}
 
     assert bundle.user.user_id == "us_priya_mehta"
@@ -18,23 +18,24 @@ def main():
     for product_id in bundle.user.product_ids:
         assert product_id in product_ids, product_id
 
-    for prospect in bundle.prospects:
-        for product_id in prospect.matched_product_ids:
+    for profile in bundle.company_profiles:
+        assert profile.company_id in company_ids, profile.profile_id
+        for product_id in profile.matched_product_ids:
             assert product_id in product_ids, (
-                f"{prospect.prospect_id} references missing {product_id}"
+                f"{profile.company_id} references missing {product_id}"
             )
 
     for contact in bundle.contacts:
-        assert contact.prospect_id in prospect_ids, contact.contact_id
+        assert contact.company_id in company_ids, contact.contact_id
 
-    for profile in bundle.profiles:
+    for profile in bundle.contact_profiles:
         assert profile.contact_id in contact_ids, profile.profile_id
-        assert profile.prospect_id in prospect_ids, profile.profile_id
+        assert profile.company_id in company_ids, profile.profile_id
 
         contact = bundle.contact_map()[profile.contact_id]
-        assert contact.prospect_id == profile.prospect_id, profile.profile_id
+        assert contact.company_id == profile.company_id, profile.profile_id
 
-    assert len(bundle.profiles) == len(bundle.contacts)
+    assert len(bundle.contact_profiles) == len(bundle.contacts)
 
     dnc_contact_ids = {
         entry.value
@@ -48,9 +49,10 @@ def main():
 
     print(f"user: {bundle.user.full_name} @ {bundle.user.company.name}")
     print(f"products: {len(bundle.products)}")
-    print(f"prospects: {len(bundle.prospects)}")
+    print(f"companies: {len(bundle.companies)}")
+    print(f"company profiles: {len(bundle.company_profiles)}")
     print(f"contacts: {len(bundle.contacts)}")
-    print(f"profiles: {len(bundle.profiles)}")
+    print(f"contact profiles: {len(bundle.contact_profiles)}")
     print(f"dnc entries: {len(bundle.dnc)}")
     print("\nMOCK DATA JOIN TEST PASSED")
 

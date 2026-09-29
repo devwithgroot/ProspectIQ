@@ -1,0 +1,62 @@
+[
+  {
+    "company_id": "pr_asian_paints",
+    "name": "Asian Paints",
+    "website": "https://www.asianpaints.com",
+    "industry": "Paints and coatings",
+    "headquarters": "Mumbai, India",
+    "employee_count": 8000,
+    "founded_year": 1942,
+    "description": "India's largest decorative paints company, with a dense dealer network, a growing waterproofing and home-improvement portfolio, and ongoing capacity and digital investments.",
+    "products_services": [
+      "Decorative paints",
+      "Waterproofing",
+      "Adhesives and construction chemicals",
+      "Home painting services",
+      "Industrial coatings"
+    ],
+    "sources": [
+      "https://www.asianpaints.com",
+      "Public market and expansion coverage from research tools"
+    ]
+  },
+  {
+    "company_id": "pr_tata_steel",
+    "name": "Tata Steel",
+    "website": "https://www.tatasteel.com",
+    "industry": "Metals and steel manufacturing",
+    "headquarters": "Mumbai, India",
+    "employee_count": 75000,
+    "founded_year": 1907,
+    "description": "Integrated steel producer with large Indian plants, a long-running manufacturing-excellence program, and public Industry 4.0 / digital plant initiatives.",
+    "products_services": [
+      "Flat and long steel",
+      "Downstream steel products",
+      "Industrial solutions for auto and construction"
+    ],
+    "sources": [
+      "https://www.tatasteel.com",
+      "Public Industry 4.0 and plant-operations coverage"
+    ]
+  },
+  {
+    "company_id": "pr_havells",
+    "name": "Havells India",
+    "website": "https://www.havells.com",
+    "industry": "Electricals and consumer durables",
+    "headquarters": "Noida, India",
+    "employee_count": 12000,
+    "founded_year": 1958,
+    "description": "Electricals and durables brand with a wide dealer network across lighting, switchgear, fans, and related categories, plus continued channel and brand investment.",
+    "products_services": [
+      "Switchgear",
+      "Lighting",
+      "Fans and appliances",
+      "Cables and electrical accessories"
+    ],
+    "sources": [
+      "https://www.havells.com",
+      "Public channel and brand coverage"
+    ]
+  }
+]

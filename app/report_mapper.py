@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import re
 
-from config.excon_schemas import Product, Prospect, ProspectSignal, User
+from config.excon_schemas import (
+    Company,
+    CompanyProfile,
+    CompanySignal,
+    Product,
+    User,
+)
 from config.schemas import ProspectReport
 
 from app.prospect_upload import UploadedProspect
@@ -13,14 +19,14 @@ def slug(value: str, prefix: str) -> str:
     return f"{prefix}_{cleaned[:40] or 'unknown'}"
 
 
-def report_to_prospect(
+def report_to_company(
     report: ProspectReport,
     uploaded: UploadedProspect,
     user: User,
     products: list[Product],
-) -> Prospect:
+) -> tuple[Company, CompanyProfile]:
     signals = [
-        ProspectSignal(
+        CompanySignal(
             type="research",
             description=signal,
             strength="medium",
@@ -42,17 +48,26 @@ def report_to_prospect(
             f"based on the uploaded list and research."
         )
 
-    return Prospect(
-        prospect_id=slug(report.company_name, "pr"),
-        company_name=report.company_name,
+    company_id = slug(report.company_name, "co")
+    company = Company(
+        company_id=company_id,
+        name=report.company_name,
         website=uploaded.website,
         industry="Unknown",
         description=report.executive_summary,
-        signals=signals,
-        pain_points=list(report.risks),
-        overall_score=report.prospect_score,
-        recommendation=report.recommendation,
-        why_relevant_to_user=why,
-        matched_product_ids=product_ids,
         sources=sources,
     )
+    profile = CompanyProfile(
+        profile_id=slug(report.company_name, "cp"),
+        company_id=company_id,
+        executive_summary=report.executive_summary,
+        overall_score=report.prospect_score,
+        recommendation=report.recommendation,
+        signals=signals,
+        pain_points=list(report.risks),
+        risks=list(report.risks),
+        recommended_sales_approach=report.recommended_sales_approach,
+        why_relevant_to_user=why,
+        matched_product_ids=product_ids,
+    )
+    return company, profile

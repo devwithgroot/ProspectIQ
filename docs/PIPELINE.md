@@ -1,11 +1,11 @@
-# Seller pipeline
+# User pipeline
 
-The current application entry. A seller enters identity + a company website, uploads prospect companies, and `ProspectIQ.analyze()` runs for each row. No stand-ins: onboarding uses the website reader + MLX, research uses Tavily + MLX.
+The current application entry. A user enters identity + a company website, uploads prospect companies, and `ProspectIQ.analyze()` runs for each row. No stand-ins: onboarding uses the website reader + MLX, research uses Tavily + MLX.
 
 ## Flow
 
 ```text
-Name, phone, email, company website
+Name, phone, work email, industry, title, company website (suggested from the work-email domain)
         │
         ▼
 WebsiteReaderTool  →  page text
@@ -48,12 +48,24 @@ Do not add a second LLM or search client. `LLMClient` and `WebSearchTool` are th
 
 ## Command
 
+Next.js + shadcn form (website and upload in the browser):
+
+```bash
+./run_app.sh
+```
+
+UI: http://localhost:3000 · API: http://localhost:8000
+
+CLI:
+
 ```bash
 ./run_pipeline.sh \
   --name "Priya Mehta" \
   --phone "+919845512210" \
   --email "priya.mehta@nexusflow.io" \
   --website "https://www.zoho.com" \
+  --industry "Software / SaaS" \
+  --title "Account Executive" \
   --prospects data/uploads/sample_prospects.csv
 ```
 
@@ -65,26 +77,26 @@ CSV header:
 company_name,website,notes
 ```
 
-`company_name` is required. Duplicate names are skipped. Sample: `data/uploads/sample_prospects.csv`.
+`company_name` is required. Duplicate names are skipped. Samples live in `data/uploads/` (`sample_prospects.csv` is the short default; others cover Demand Planning, PlantConnect, TradePulse, names-only, mixed columns, and a CRM-style export). Maximum **5 MB per file** (Next.js form, FastAPI, and `load_prospect_csv` all enforce this).
 
 ## What each step calls
 
-1. **Onboarding** (`app/onboarding.py`) — fetch the seller site, ask MLX for `SellerCompany` + products, build `User`.
+1. **Onboarding** (`app/onboarding.py`) — fetch the user’s site, ask MLX for company name/description + products, then attach the user-selected `Industry` and `UserTitle`.
 2. **Upload** (`app/prospect_upload.py`) — parse the CSV.
-3. **Orchestrator** (`app/orchestrator.py`) — for every uploaded company, run research → score → report against that seller's products.
+3. **Orchestrator** (`app/orchestrator.py`) — for every uploaded company, run research → score → report against that user’s products.
 4. **Map** (`app/report_mapper.py`) — `ProspectReport` → `Prospect` (score, signals, risks, sources, `matched_product_ids`).
 5. **Save** — JSON under `data/runs/`. That folder is gitignored.
 
 ## Live check
 
-`python -m tests.test_pipeline` is this path end to end. A run against Zoho as seller and the sample CSV produced:
+`python -m tests.test_pipeline` is this path end to end. A run against Zoho as the user company and the sample CSV produced:
 
 | Prospect | Score | Recommendation |
 |---|---|---|
 | Asian Paints | 81 | High-priority prospect |
 | Havells India | 80 | High-priority prospect |
 
-Expect several minutes: each company can take up to five Tavily searches plus scoring and a report.
+Expect several minutes: onboarding is about a minute, then each company can take about 2–3 minutes (up to five Tavily searches plus scoring and a report). The form shows that range before and during research.
 
 ## Not in this pipeline yet
 

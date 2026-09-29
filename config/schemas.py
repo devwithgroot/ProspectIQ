@@ -270,3 +270,16 @@ class News(BaseModel):
     location: str | None = None
 
     evidence: list[str] = Field(default_factory=list)
+
+
+class ContactProfileDraft(BaseModel):
+    bio: str
+    responsibilities: list[str] = Field(default_factory=list)
+    interests: list[str] = Field(default_factory=list)
+    recent_activity: list[str] = Field(default_factory=list)
+    communication_style: str
+    likely_pain_vs_product: str
+    talking_points: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    recommended_approach: str
+    language: str = "en"

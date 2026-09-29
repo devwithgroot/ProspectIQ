@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.pipeline import SellerPipeline
+from app.pipeline import UserPipeline
 
 
 def main():
@@ -8,29 +8,30 @@ def main():
     print("PIPELINE ORCHESTRATOR TEST")
     print("==============================")
 
-    result = SellerPipeline().run(
+    result = UserPipeline().run(
         full_name="Priya Mehta",
         phone="+919845512210",
         email="priya.mehta@nexusflow.io",
         website="https://www.zoho.com",
         prospects_csv=Path("data/uploads/sample_prospects.csv"),
         title="Account Executive",
+        industry="Software / SaaS",
     )
 
     names = [row.company_name for row in result.uploaded]
     assert names == ["Asian Paints", "Havells India"]
-    assert len(result.reports) == 2
-    assert len(result.prospects) == 2
+    assert len(result.company_profiles) == 2
+    assert len(result.companies) == 2
 
-    for report, prospect in zip(result.reports, result.prospects):
+    for company, profile in zip(result.companies, result.company_profiles):
         print(
-            f"{prospect.company_name}: "
-            f"{prospect.overall_score:.1f} / {prospect.recommendation}"
+            f"{company.name}: "
+            f"{profile.overall_score:.1f} / {profile.recommendation}"
         )
-        assert report.company_name
-        assert report.executive_summary
-        assert 0 <= prospect.overall_score <= 100
-        assert len(report.evidence) > 0
+        assert company.name
+        assert profile.executive_summary
+        assert 0 <= profile.overall_score <= 100
+        assert company.company_id == profile.company_id
 
     print("\nPIPELINE ORCHESTRATOR TEST PASSED")
 

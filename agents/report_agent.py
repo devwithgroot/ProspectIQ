@@ -1,6 +1,12 @@
+from collections.abc import Callable
+
 from agents.state import ResearchState
+from config.research_log import get_logger
 from config.schemas import ProspectReport, ProspectScore
 from llm.client import LLMClient
+from llm.json_util import extract_think, parse_model, reason_lines
+
+log = get_logger("report")
 
 
 class ReportAgent:
@@ -12,7 +18,11 @@ class ReportAgent:
         self,
         state: ResearchState,
         score: ProspectScore,
+        on_progress: Callable[[str], None] | None = None,
     ) -> ProspectReport:
+        log.info("Report start company=%s", state.company_name)
+        if on_progress is not None:
+            on_progress(f"Writing your {state.company_name} briefing")
 
         evidence_summary = "\n".join(
             [
@@ -80,7 +90,9 @@ information that a salesperson should consider.
 
 4. recommended_sales_approach
 Give a practical sales approach based ONLY on
-the evidence and scoring information.
+the evidence and scoring information. Mention
+the kinds of people to talk to (roles, not invented
+names) if the evidence supports it.
 
 Important rules:
 
@@ -117,13 +129,20 @@ Return ONLY valid JSON.
             temperature=0.0,
             max_tokens=800,
         )
+        if on_progress is not None:
+            for line in reason_lines(extract_think(response), limit=1):
+                on_progress(line)
 
-        report_data = ProspectReport.model_validate_json(
-            response
-        )
+        report_data = parse_model(ProspectReport, response)
+        log.info("Report ok company=%s", state.company_name)
 
         report_data.prospect_score = score.overall_score
         report_data.recommendation = score.recommendation
         report_data.evidence = state.evidence
+
+        if on_progress is not None and report_data.key_signals:
+            first = " ".join(report_data.key_signals[0].split())
+            if first:
+                on_progress(f"Why: the main thing to use is {first[:180]}")
 
         return report_data
